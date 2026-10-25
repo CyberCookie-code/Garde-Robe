@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { ensureDefaultProfiles } from './data/db'
 import { repo } from './data/repo'
+import { requestPersistence } from './data/backup'
 import { TodayPage } from './pages/TodayPage'
 import { WardrobePage } from './pages/WardrobePage'
 import { OutfitsPage } from './pages/OutfitsPage'
@@ -32,6 +33,7 @@ export default function App() {
 
   useEffect(() => {
     void ensureDefaultProfiles().then(() => setReady(true))
+    void requestPersistence()
   }, [])
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export default function App() {
         {tab === 'today' && <TodayPage profileId={profileId} />}
         {tab === 'wardrobe' && <WardrobePage profileId={profileId} />}
         {tab === 'outfits' && <OutfitsPage profileId={profileId} />}
-        {tab === 'settings' && <SettingsPage />}
+        {tab === 'settings' && <SettingsPage profileId={profileId} />}
       </main>
 
       <nav className="tabs">

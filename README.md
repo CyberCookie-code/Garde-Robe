@@ -12,9 +12,16 @@ npm run build      # build de production dans dist/
 npm run preview    # sert le build (avec service worker)
 ```
 
-Pour l'installer sur un téléphone il faut une URL en HTTPS (Vercel, Netlify ou GitHub Pages).
-- iPhone : ouvrir dans Safari, Partager, « Sur l'écran d'accueil ».
-- Pixel : ouvrir dans Chrome, menu, « Installer l'application ».
+## Installer sur les téléphones
+
+L'app est publiée automatiquement sur GitHub Pages à chaque fusion dans `main`
+(`.github/workflows/deploy.yml`) : https://cybercookie-code.github.io/Garde-Robe/
+
+- iPhone : ouvrir le lien dans **Safari**, Partager, « Sur l'écran d'accueil ».
+- Pixel : ouvrir le lien dans Chrome, menu ⋮, « Installer l'application ».
+
+Réglage à faire une fois dans le dépôt : Settings > Pages > Source = « GitHub Actions »
+(le dépôt doit être public pour Pages en formule gratuite).
 
 ## Architecture
 
@@ -22,20 +29,35 @@ Pour l'installer sur un téléphone il faut une URL en HTTPS (Vercel, Netlify ou
 |---|---|---|
 | App | React 19 + Vite + TypeScript | Un seul code pour iOS et Android, pas de store à passer |
 | PWA | vite-plugin-pwa (Workbox) | Installation sur l'écran d'accueil, fonctionne hors-ligne |
-| Données (v0) | IndexedDB via Dexie | Zéro compte à créer pour tester, photos stockées en local |
-| Données (v1) | Supabase (Postgres + Storage + Auth) | Garde-robe partagée entre les deux téléphones |
+| Données | IndexedDB via Dexie | Chaque téléphone a sa propre garde-robe, sans compte ni serveur |
+| Sauvegarde / partage | Fichier JSON (photos incluses) | Pas de serveur à maintenir ; partage via la feuille de partage du téléphone |
+| Hébergement | GitHub Pages | Gratuit, HTTPS, déployé à chaque fusion |
 
 ```
 src/
   domain/      types.ts (modèle de données), catalog.ts (catégories, palette, occasions, moods)
-  data/        db.ts (schéma IndexedDB), repo.ts (seul point d'accès aux données), photo.ts (compression)
+  data/        db.ts (schéma IndexedDB), repo.ts (seul point d'accès aux données), photo.ts (compression),
+               backup.ts (sauvegarde, restauration, partage par fichier)
   matching/    engine.ts (moteur de suggestion à critères)
   components/  ui.tsx (vignettes, chips, panneau)
   pages/       Today, Wardrobe, ItemForm, Outfits, Settings
 ```
 
-Les écrans ne parlent qu'à `data/repo.ts`. Passer à Supabase revient à réécrire ce fichier
-(et ajouter la connexion), sans toucher aux écrans.
+Les écrans ne parlent qu'à `data/repo.ts`. Une synchro serveur (Supabase) a été écrite et testée
+sur la branche `feat/synchro-supabase`, puis mise de côté : on préfère une version locale par téléphone.
+
+## Sauvegarde et partage
+
+- **Sauvegarder tout** (Réglages) : un fichier JSON avec vêtements, photos, tenues et historique,
+  à ranger dans iCloud Drive ou Google Drive. Un rappel s'affiche sur l'écran du jour après 14 jours
+  sans sauvegarde (dès 5 vêtements).
+- **Importer un fichier** : restaure une sauvegarde ou ajoute un partage. Les données sont fusionnées
+  (même identifiant = remplacé, rien n'est supprimé).
+- **Partager** une tenue (onglet Tenues) ou toute sa garde-robe (Réglages) : le fichier part par
+  AirDrop, Messages, WhatsApp… et, une fois importé, apparaît dans le profil de l'expéditeur sur
+  l'autre téléphone. C'est ce qui permet d'assortir vos tenues sans serveur. Limite : c'est une copie,
+  pas une synchro ; il faut renvoyer le fichier après des changements.
+- Au démarrage, l'app demande au navigateur un stockage persistant (`navigator.storage.persist`).
 
 ## Modèle de données
 
@@ -58,8 +80,7 @@ fournit pas la météo. La raison du choix est affichée à l'utilisateur.
 ## Feuille de route proposée
 
 1. **MVP (fait)** : vêtements, tenues, tenue du jour, deux profils, stockage local.
-2. **Partage** : Supabase, un « foyer » avec deux comptes, photos dans Storage. C'est ce qui permet
-   de matcher vos tenues, sinon chaque téléphone a sa propre garde-robe.
+2. **Hébergement, sauvegarde et partage par fichier (fait)**.
 3. **Météo** : Open-Meteo (gratuit, sans clé) + géolocalisation, active le critère `byWeather`.
 4. **Événement et mood** : deux sélecteurs sur l'écran du jour, critères sur `occasions`/`formality`/`moods`.
 5. **Couleurs par règles** : harmonie entre les pièces (neutres + 1 couleur, complémentaires,
@@ -72,8 +93,8 @@ fournit pas la météo. La raison du choix est affichée à l'utilisateur.
 ## Points d'attention
 
 - **Données locales** : sur iPhone, Safari peut effacer les données d'un site non installé après
-  quelques semaines d'inactivité. Installer l'app sur l'écran d'accueil évite ce cas. Le stockage
-  local reste une étape de test, pas une sauvegarde.
+  quelques semaines d'inactivité. Installer l'app sur l'écran d'accueil évite ce cas. Sans serveur,
+  le fichier de sauvegarde est la seule copie de secours : le rappel est là pour ça.
 - **Colorimétrie du visage** : la déduire d'une photo est peu fiable (éclairage, balance des blancs
   du téléphone) et une photo de visage est une donnée sensible. Meilleur rapport fiabilité/effort :
   la saisir à la main une fois.

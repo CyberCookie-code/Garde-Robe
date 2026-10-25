@@ -45,7 +45,12 @@ export type Mood = 'confort' | 'chic' | 'audacieux' | 'discret' | 'energique'
 export type ColorSeason = 'printemps' | 'ete' | 'automne' | 'hiver'
 export type Undertone = 'chaud' | 'froid' | 'neutre'
 
-export interface Profile {
+/** Champs communs : `updatedAt` sert à la synchro. */
+interface Synced {
+  updatedAt?: string
+}
+
+export interface Profile extends Synced {
   id: Id
   name: string
   accent: string
@@ -57,10 +62,12 @@ export interface Profile {
   avoidColors?: string[]
 }
 
-export interface Item {
+export interface Item extends Synced {
   id: Id
   ownerId: Id
   photo?: Blob
+  /** chemin de la photo dans Supabase Storage, une fois envoyée */
+  photoPath?: string
   name: string
   category: Category
   colors: ColorTag[]
@@ -80,7 +87,7 @@ export interface Item {
 
 export type OutfitSource = 'manuel' | 'regles' | 'ia'
 
-export interface Outfit {
+export interface Outfit extends Synced {
   id: Id
   ownerId: Id
   name: string
@@ -99,7 +106,7 @@ export interface Outfit {
 }
 
 /** Historique : ce qui a été porté un jour donné (sert à éviter les répétitions et, plus tard, à l'IA). */
-export interface WearLog {
+export interface WearLog extends Synced {
   id: Id
   profileId: Id
   date: string // AAAA-MM-JJ
@@ -112,7 +119,7 @@ export interface WearLog {
 }
 
 /** futur : deux tenues (une par profil) assorties pour une même sortie. */
-export interface CoupleLook {
+export interface CoupleLook extends Synced {
   id: Id
   name: string
   outfitIds: [Id, Id]

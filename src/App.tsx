@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { ensureDefaultProfiles } from './data/db'
 import { repo } from './data/repo'
+import { startSync } from './sync/engine'
 import { TodayPage } from './pages/TodayPage'
 import { WardrobePage } from './pages/WardrobePage'
 import { OutfitsPage } from './pages/OutfitsPage'
@@ -31,7 +32,10 @@ export default function App() {
   const profile = profiles?.find((p) => p.id === profileId)
 
   useEffect(() => {
-    void ensureDefaultProfiles().then(() => setReady(true))
+    void ensureDefaultProfiles().then(() => {
+      setReady(true)
+      void startSync()
+    })
   }, [])
 
   useEffect(() => {

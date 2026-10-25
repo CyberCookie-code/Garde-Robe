@@ -116,3 +116,4 @@ legend { font-weight: 500; margin-bottom: 8px; }
 .today-items figcaption { font-size: 0.85rem; padding-top: 4px; }
 .actions { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 18px; }
 .done { margin-top: 18px; font-weight: 600; color: var(--accent); }
+.code { font-family: ui-monospace, monospace; letter-spacing: 0.1em; font-size: 1.1rem; }

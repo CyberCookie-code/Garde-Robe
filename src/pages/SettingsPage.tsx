@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { repo } from '../data/repo'
+import { SyncSection } from './SyncSection'
 
 export function SettingsPage() {
   const profiles = useLiveQuery(() => repo.profiles.list())
@@ -20,11 +21,10 @@ export function SettingsPage() {
         </label>
       ))}
 
-      <h2>Stockage</h2>
-      <p className="muted">
-        Pour l'instant les données restent sur ce téléphone uniquement. La synchronisation entre vos deux téléphones
-        est la prochaine étape.
-      </p>
+      <h2>Synchro entre nos téléphones</h2>
+      <SyncSection />
+
+      <h2>Stockage local</h2>
       <p>
         Stockage protégé : <strong>{persisted === undefined ? '…' : persisted ? 'oui' : 'non'}</strong>
       </p>

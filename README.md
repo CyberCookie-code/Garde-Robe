@@ -61,11 +61,12 @@ sur la branche `feat/synchro-supabase`, puis mise de côté : on préfère une v
 
 ## Interface
 
-- Direction visuelle « lookbook » : papier blanc cassé, encre noire et une seule couleur signal
-  (vermillon) pour la sélection, les favoris et la pluie. Titres en Libre Bodoni, texte en Public Sans,
-  polices embarquées pour rester lisibles hors ligne. Filets fins plutôt que cartes et ombres, angles
-  presque droits, photos bord à bord : ce sont les vêtements qui portent la couleur.
-- Mobile d'abord : barre d'onglets en bas (icônes SVG, météo comprise), gros titres, bouton « + » flottant à portée
+- Direction visuelle « app moderne douce » : fond sable dégradé, grandes cartes très arrondies,
+  chiffres XXL (température du jour), pilules, capsule sombre flottante pour la navigation et les
+  actions, un seul accent corail (texte sombre dessus pour garder un contraste suffisant). Police
+  Geist embarquée pour rester lisible hors ligne. La tenue du jour est une grande carte photo avec son
+  nom et les raisons du choix en surimpression.
+- Mobile d'abord : barre d'onglets flottante (icônes SVG, nom affiché sur l'onglet actif), gros titres, bouton « + » flottant à portée
   de pouce, boutons « Je la porte » / « Autre idée » toujours visibles sur l'écran du jour.
 - Ajout rapide : photo → catégorie → « Ajouter » (ou « Ajouter + suivant » pour enchaîner). La couleur
   est devinée sur la photo (fond retiré, centre analysé), le nom est proposé à partir de la catégorie

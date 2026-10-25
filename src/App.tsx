@@ -54,12 +54,13 @@ export default function App() {
             key={t.id}
             className={t.id === tab ? 'on' : ''}
             aria-current={t.id === tab ? 'page' : undefined}
+            aria-label={t.label}
             onClick={() => go(t.id)}
           >
-            <span className="tab-icon">
-              <Icon name={t.icon} size={24} />
+            <Icon name={t.icon} size={22} />
+            <span className="tab-label" aria-hidden="true">
+              {t.label}
             </span>
-            {t.label}
           </button>
         ))}
       </nav>

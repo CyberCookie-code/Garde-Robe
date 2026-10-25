@@ -1,12 +1,17 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { CATEGORIES, OCCASIONS } from '../domain/catalog'
-import type { Id, Item, Occasion } from '../domain/types'
+import type { Item, Occasion } from '../domain/types'
 import { repo, today } from '../data/repo'
 import { exportAll, lastBackup, shareOrDownload } from '../data/backup'
 import { rankOutfits, seasonOf } from '../matching/engine'
-import { Chips, Empty, ItemThumb } from '../components/ui'
+import { Chips, Collage, EmptyState, PageHeader } from '../components/ui'
+import { toast } from '../components/toast'
+import { Icon } from '../components/icons'
 import { locateMe, place, todayWeather, weatherIcon, type DayWeather } from '../context/weather'
+import type { Go } from '../App'
+
+const catOrder = (i: Item) => CATEGORIES.findIndex((c) => c.value === i.category)
 
 const occasionKey = (date: string) => `occasion:${date}`
 const readOccasion = (date: string) => {
@@ -17,24 +22,23 @@ const readOccasion = (date: string) => {
   }
 }
 
-const catOrder = (i: Item) => CATEGORIES.findIndex((c) => c.value === i.category)
-
-export function TodayPage({ profileId }: { profileId: Id }) {
+export function TodayPage({ go }: { go: Go }) {
   const date = today()
   const data = useLiveQuery(async () => {
     const [outfits, items, recentWear, worn, backupAt] = await Promise.all([
-      repo.outfits.listByOwner(profileId),
-      repo.items.listByOwner(profileId),
-      repo.wear.recent(profileId),
-      repo.wear.forDay(profileId, date),
+      repo.outfits.list(),
+      repo.items.list(),
+      repo.wear.recent(),
+      repo.wear.forDay(date),
       lastBackup.get(),
     ])
     return { outfits, items, recentWear, worn, backupAt }
-  }, [profileId, date])
+  }, [date])
   const [skip, setSkip] = useState(0)
   const [occasion, setOccasionState] = useState<Occasion | undefined>(() => readOccasion(date))
   const [weather, setWeather] = useState<DayWeather | 'aucune' | 'erreur'>()
   const [weatherTick, setWeatherTick] = useState(0)
+  const [locating, setLocating] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -58,17 +62,42 @@ export function TodayPage({ profileId }: { profileId: Id }) {
   }
 
   const enableWeather = async () => {
+    setLocating(true)
     try {
       await place.set(await locateMe())
       setWeatherTick((t) => t + 1)
     } catch (e) {
-      alert(e instanceof Error ? e.message : String(e))
+      toast(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLocating(false)
     }
   }
 
-  if (!data) return null
+  const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const header = <PageHeader eyebrow={dateLabel} title="Aujourd’hui" />
+
+  if (!data) return header
+
+  if (data.items.length === 0)
+    return (
+      <>
+        {header}
+        <EmptyState
+          icon="hanger"
+          title="Ta garde-robe est vide"
+          action={
+            <button className="btn primary" onClick={() => go('wardrobe', 'add-item')}>
+              <Icon name="camera" /> Photographier un vêtement
+            </button>
+          }
+        >
+          Commence par tes pièces préférées : une photo, une catégorie, c’est tout.
+        </EmptyState>
+      </>
+    )
+
   const items = new Map(data.items.map((i) => [i.id, i]))
-  // On exclut la tenue déjà portée aujourd'hui du calcul de récence pour qu'elle reste affichée.
+  // La tenue déjà portée aujourd'hui ne compte pas dans la récence, pour qu'elle reste affichée.
   const recentWear = data.recentWear.filter((w) => w.date !== date)
   const ranked = rankOutfits(data.outfits, {
     date,
@@ -80,80 +109,150 @@ export function TodayPage({ profileId }: { profileId: Id }) {
   })
 
   if (ranked.length === 0)
-    return <Empty>Pas encore de tenue enregistrée. Ajoute des vêtements puis compose une tenue dans l'onglet Tenues.</Empty>
+    return (
+      <>
+        {header}
+        <EmptyState
+          icon="layers"
+          title="Compose ta première tenue"
+          action={
+            <button className="btn primary" onClick={() => go('outfits', 'new-outfit')}>
+              <Icon name="plus" /> Composer une tenue
+            </button>
+          }
+        >
+          Tu as {data.items.length} vêtement{data.items.length > 1 ? 's' : ''}. Assemble-les en tenues : ce sont elles qui te
+          seront proposées chaque matin.
+        </EmptyState>
+      </>
+    )
 
   const wornOutfit = data.worn && data.outfits.find((o) => o.id === data.worn!.outfitId)
-  const current = wornOutfit ? { outfit: wornOutfit, reasons: ['portée aujourd’hui'] } : ranked[skip % ranked.length]
+  const current = wornOutfit ? { outfit: wornOutfit, reasons: [] as string[] } : ranked[skip % ranked.length]
+  const pieces = current.outfit.itemIds
+    .map((id) => items.get(id))
+    .filter((it): it is Item => !!it)
+    .sort((a, b) => catOrder(a) - catOrder(b))
 
   const backupDays = data.backupAt ? (Date.parse(date) - Date.parse(data.backupAt.slice(0, 10))) / 86_400_000 : Infinity
   const backupReminder = data.items.length >= 5 && backupDays > 14
 
   return (
-    <section className="today">
-      {backupReminder && (
-        <div className="banner">
-          <span>{data.backupAt ? 'Dernière sauvegarde il y a plus de 2 semaines.' : 'Aucune sauvegarde pour l’instant.'}</span>
+    <>
+      {header}
+      <section className="today">
+        <div className="context-row">
+          {typeof weather === 'object' ? (
+            <p className="weather-pill" title={weather.place}>
+              <span aria-hidden="true">{weatherIcon(weather.code)}</span>
+              <strong>{Math.round(weather.tempC)}°</strong>
+              <span className="muted">ressentis</span>
+              {weather.rain && <span className="rain">pluie {weather.rainProbability} %</span>}
+            </p>
+          ) : weather === 'aucune' ? (
+            <button className="weather-pill action" onClick={() => void enableWeather()} disabled={locating}>
+              <Icon name="pin" size={18} /> {locating ? 'Localisation…' : 'Ajouter la météo'}
+            </button>
+          ) : weather === 'erreur' ? (
+            <p className="weather-pill muted">Météo indisponible</p>
+          ) : (
+            <p className="weather-pill skeleton" aria-hidden="true" />
+          )}
+        </div>
+
+        {!wornOutfit && (
+          <div className="occasion">
+            <p className="label" id="occasion-label">
+              Pour quoi, aujourd’hui ?
+            </p>
+            <Chips
+              label="Occasion du jour"
+              scroll
+              options={OCCASIONS}
+              value={occasion ? [occasion] : []}
+              onChange={(v) => setOccasion(v.find((x) => x !== occasion))}
+            />
+          </div>
+        )}
+
+        <article className={`outfit-hero ${wornOutfit ? 'worn' : ''}`} aria-live="polite">
+          <Collage items={pieces} className="hero-collage" />
+          <div className="hero-body">
+            {wornOutfit && (
+              <p className="badge success">
+                <Icon name="check" size={16} /> Portée aujourd’hui
+              </p>
+            )}
+            <h2>{current.outfit.name}</h2>
+            <p className="pieces">{pieces.map((p) => p.name).join(' · ')}</p>
+            {current.reasons.length > 0 && (
+              <ul className="reasons" aria-label="Pourquoi cette tenue">
+                {current.reasons.map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </article>
+
+        {wornOutfit ? (
           <button
+            className="btn ghost wide"
             onClick={async () => {
-              if ((await shareOrDownload(await exportAll(), 'Sauvegarde garde-robe')) !== 'annulé') await lastBackup.mark()
+              await repo.wear.undo()
+              toast('C’est annulé.')
             }}
           >
-            Sauvegarder
+            <Icon name="undo" /> Changer de tenue
           </button>
-        </div>
-      )}
-      <p className="muted">{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-      <div className="day-context">
-        {typeof weather === 'object' ? (
-          <p className="weather">
-            {weatherIcon(weather.code)} <strong>{Math.round(weather.tempC)}°C</strong> ressentis
-            <span className="muted">
-              {' '}
-              ({Math.round(weather.minC)}° à {Math.round(weather.maxC)}°)
-              {weather.rain ? ` · pluie probable (${weather.rainProbability} %)` : ''}
-            </span>
-          </p>
-        ) : weather === 'aucune' ? (
-          <button className="ghost small" onClick={() => void enableWeather()}>
-            📍 Tenir compte de la météo
-          </button>
-        ) : weather === 'erreur' ? (
-          <p className="muted small">Météo indisponible (hors-ligne ?)</p>
-        ) : null}
-        {!wornOutfit && (
-          <Chips
-            options={OCCASIONS}
-            value={occasion ? [occasion] : []}
-            onChange={(v) => setOccasion(v.find((x) => x !== occasion))}
-          />
+        ) : (
+          <div className="actions">
+            <button
+              className="btn primary"
+              onClick={async () => {
+                await repo.wear.log(current.outfit, { occasion })
+                toast('Bonne journée !')
+              }}
+            >
+              <Icon name="check" /> Je la porte
+            </button>
+            <button
+              className="btn secondary"
+              onClick={() => setSkip((s) => s + 1)}
+              disabled={ranked.length < 2}
+              aria-label={`Autre idée, ${(skip % ranked.length) + 1} sur ${ranked.length}`}
+            >
+              <Icon name="refresh" /> Autre idée
+            </button>
+          </div>
         )}
-      </div>
-      <h2>{current.outfit.name}</h2>
-      {current.reasons.length > 0 && <p className="reasons">{current.reasons.join(' · ')}</p>}
-      <div className="today-items">
-        {current.outfit.itemIds
-          .map((id) => items.get(id))
-          .filter((it): it is Item => !!it)
-          .sort((a, b) => catOrder(a) - catOrder(b))
-          .map((it) => (
-            <figure key={it.id}>
-              <ItemThumb item={it} />
-              <figcaption>{it.name}</figcaption>
-            </figure>
-          ))}
-      </div>
-      {wornOutfit ? (
-        <p className="done">✓ C'est noté pour aujourd'hui.</p>
-      ) : (
-        <div className="actions">
-          <button className="primary" onClick={() => repo.wear.log(profileId, current.outfit)}>
-            Je la porte
-          </button>
-          <button onClick={() => setSkip((s) => s + 1)} disabled={ranked.length < 2}>
-            Autre idée ({(skip % ranked.length) + 1}/{ranked.length})
-          </button>
-        </div>
-      )}
-    </section>
+        {!wornOutfit && ranked.length > 1 && (
+          <p className="counter" aria-hidden="true">
+            {Array.from({ length: Math.min(ranked.length, 8) }, (_, i) => (
+              <i key={i} className={i === skip % ranked.length ? 'on' : ''} />
+            ))}
+          </p>
+        )}
+
+        {backupReminder && (
+          <div className="banner">
+            <Icon name="shield" />
+            <p>{data.backupAt ? 'Dernière sauvegarde il y a plus de 2 semaines.' : 'Tes vêtements ne sont pas encore sauvegardés.'}</p>
+            <button
+              className="btn small secondary"
+              onClick={async () => {
+                const r = await shareOrDownload(await exportAll(), 'Sauvegarde garde-robe')
+                if (r !== 'annulé') {
+                  await lastBackup.mark()
+                  toast('Sauvegarde prête.')
+                }
+              }}
+            >
+              Sauvegarder
+            </button>
+          </div>
+        )}
+      </section>
+    </>
   )
 }

@@ -45,10 +45,14 @@ export type Mood = 'confort' | 'chic' | 'audacieux' | 'discret' | 'energique'
 export type ColorSeason = 'printemps' | 'ete' | 'automne' | 'hiver'
 export type Undertone = 'chaud' | 'froid' | 'neutre'
 
+/** Chaque téléphone a une seule garde-robe : la sienne (`ME`). */
+export const ME = 'moi'
+/** Vêtements et tenues reçus de l'autre téléphone par fichier de partage. */
+export const RECEIVED = 'recu'
+export type Owner = typeof ME | typeof RECEIVED
+
 export interface Profile {
   id: Id
-  name: string
-  accent: string
   /** futur : colorimétrie déclarée, jamais déduite d'une photo du visage côté serveur */
   colorSeason?: ColorSeason
   undertone?: Undertone
@@ -59,7 +63,7 @@ export interface Profile {
 
 export interface Item {
   id: Id
-  ownerId: Id
+  ownerId: Owner
   photo?: Blob
   name: string
   category: Category
@@ -82,7 +86,7 @@ export type OutfitSource = 'manuel' | 'regles' | 'ia'
 
 export interface Outfit {
   id: Id
-  ownerId: Id
+  ownerId: Owner
   name: string
   itemIds: Id[]
   seasons: Season[]
@@ -101,7 +105,7 @@ export interface Outfit {
 /** Historique : ce qui a été porté un jour donné (sert à éviter les répétitions et, plus tard, à l'IA). */
 export interface WearLog {
   id: Id
-  profileId: Id
+  profileId: Owner
   date: string // AAAA-MM-JJ
   outfitId?: Id
   itemIds: Id[]

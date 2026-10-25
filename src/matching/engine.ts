@@ -41,7 +41,7 @@ const bySeason: Criterion = (o, ctx) => {
 
 const byRecency: Criterion = (o, ctx) => {
   const idx = ctx.recentWear.findIndex((w) => w.outfitId === o.id)
-  if (idx === -1) return { score: 2, reason: 'pas portée récemment' }
+  if (idx === -1) return { score: 2, reason: ctx.recentWear.length ? 'pas portée récemment' : undefined }
   if (idx < 3) return { score: -6, reason: 'portée il y a peu' }
   return { score: -1 }
 }

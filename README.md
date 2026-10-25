@@ -59,9 +59,22 @@ sur la branche `feat/synchro-supabase`, puis mise de côté : on préfère une v
   pas une synchro ; il faut renvoyer le fichier après des changements.
 - Au démarrage, l'app demande au navigateur un stockage persistant (`navigator.storage.persist`).
 
+## Interface
+
+- Mobile d'abord : barre d'onglets en bas (icônes SVG), gros titres, bouton « + » flottant à portée
+  de pouce, boutons « Je la porte » / « Autre idée » toujours visibles sur l'écran du jour.
+- Ajout rapide : photo → catégorie → « Ajouter » (ou « Ajouter + suivant » pour enchaîner). La couleur
+  est devinée sur la photo (fond retiré, centre analysé), le nom est proposé à partir de la catégorie
+  et de la couleur ; saisons, chaleur, style et motif sont dans « Plus de détails ».
+- Retours : messages courts en haut de l'écran, avec « Annuler » après une suppression ; « Changer de
+  tenue » annule « Je la porte ».
+- Accessibilité : cibles tactiles de 44 px minimum, états `aria-pressed` / `aria-current`, panneaux
+  `role="dialog"` fermables avec Échap, focus visible, animations coupées si « réduire les animations ».
+- Mode sombre automatique (selon le réglage du téléphone).
+
 ## Modèle de données
 
-- **Profile** : lui / elle. Champs prévus pour la suite : `colorSeason`, `undertone`, `favoriteColors`, `avoidColors`.
+- **Profile** : un seul par téléphone (`moi`) ; les vêtements et tenues reçus par partage ont le propriétaire `recu`. Champs prévus pour la suite : `colorSeason`, `undertone`, `favoriteColors`, `avoidColors`.
 - **Item** (vêtement) : photo, catégorie, couleurs (nom + hex + famille), motif, saisons,
   `warmth` 1-5 (pour la météo), `formality` 1-5 (pour l'événement), `waterproof`, compteur de port.
 - **Outfit** (tenue) : liste de vêtements, saisons, `occasions`, `moods`, `minTemp`/`maxTemp`, favori,

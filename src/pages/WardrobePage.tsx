@@ -1,63 +1,73 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CATEGORIES } from '../domain/catalog'
-import type { Category, Id } from '../domain/types'
+import type { Category, Item } from '../domain/types'
 import { repo } from '../data/repo'
-import { Empty, ItemThumb, Sheet } from '../components/ui'
+import { Chips, EmptyState, ItemThumb, PageHeader } from '../components/ui'
+import { Icon } from '../components/icons'
 import { ItemForm } from './ItemForm'
+import type { Intent } from '../App'
 
-export function WardrobePage({ profileId }: { profileId: Id }) {
-  const items = useLiveQuery(() => repo.items.listByOwner(profileId), [profileId])
+export function WardrobePage({ intent, clearIntent }: { intent: Intent; clearIntent: () => void }) {
+  const items = useLiveQuery(() => repo.items.list())
   const [filter, setFilter] = useState<Category | 'tout'>('tout')
-  const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<Item | 'new' | undefined>(() => (intent === 'add-item' ? 'new' : undefined))
 
+  useEffect(() => {
+    if (intent) clearIntent()
+  }, [intent, clearIntent])
+
+  const counts = new Map<Category, number>()
+  items?.forEach((i) => counts.set(i.category, (counts.get(i.category) ?? 0) + 1))
+  const filters = [
+    { value: 'tout' as const, label: 'Tout', count: items?.length ?? 0 },
+    ...CATEGORIES.filter((c) => counts.has(c.value)).map((c) => ({ ...c, label: c.label.split(' /')[0], count: counts.get(c.value) })),
+  ]
   const shown = items?.filter((i) => filter === 'tout' || i.category === filter) ?? []
 
   return (
-    <section>
-      <div className="toolbar">
-        <select value={filter} onChange={(e) => setFilter(e.target.value as Category | 'tout')}>
-          <option value="tout">Tout ({items?.length ?? 0})</option>
-          {CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-        <button className="primary" onClick={() => setAdding(true)}>
-          + Vêtement
-        </button>
-      </div>
+    <>
+      <PageHeader
+        title="Garde-robe"
+        eyebrow={items ? `${items.length} vêtement${items.length > 1 ? 's' : ''}` : undefined}
+      />
 
-      {items && shown.length === 0 && <Empty>Aucun vêtement ici. Commence par photographier tes pièces préférées.</Empty>}
-
-      <div className="grid">
-        {shown.map((i) => (
-          <div key={i.id} className="card">
-            <ItemThumb item={i} />
-            <div className="card-meta">
-              <span>{i.name}</span>
-              <span className="dots">
-                {i.colors.map((c) => (
-                  <i key={c.hex} style={{ background: c.hex }} />
-                ))}
-              </span>
-            </div>
-            <button
-              className="ghost small"
-              onClick={() => confirm(`Retirer « ${i.name} » ?`) && repo.items.archive(i.id)}
-            >
-              Retirer
+      {items && items.length === 0 ? (
+        <EmptyState
+          icon="camera"
+          title="Aucun vêtement pour l’instant"
+          action={
+            <button className="btn primary" onClick={() => setEditing('new')}>
+              <Icon name="camera" /> Ajouter un vêtement
             </button>
-          </div>
-        ))}
-      </div>
-
-      {adding && (
-        <Sheet title="Nouveau vêtement" onClose={() => setAdding(false)}>
-          <ItemForm ownerId={profileId} onDone={() => setAdding(false)} />
-        </Sheet>
+          }
+        >
+          Une photo et une catégorie suffisent : la couleur est devinée sur la photo. Avec « Ajouter + suivant », tu
+          enchaînes sans fermer.
+        </EmptyState>
+      ) : (
+        <>
+          {filters.length > 2 && (
+            <Chips label="Filtrer par catégorie" scroll single options={filters} value={[filter]} onChange={([f]) => setFilter(f)} />
+          )}
+          <ul className="grid" aria-label="Vêtements">
+            {shown.map((i) => (
+              <li key={i.id}>
+                <button className="tile" onClick={() => setEditing(i)} aria-label={`${i.name}, modifier`}>
+                  <ItemThumb item={i} />
+                  <span className="tile-name">{i.name}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
-    </section>
+
+      <button className="fab" onClick={() => setEditing('new')} aria-label="Ajouter un vêtement">
+        <Icon name="plus" size={26} />
+      </button>
+
+      {editing && <ItemForm item={editing === 'new' ? undefined : editing} onClose={() => setEditing(undefined)} />}
+    </>
   )
 }

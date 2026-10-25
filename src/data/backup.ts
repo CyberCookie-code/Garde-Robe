@@ -1,10 +1,12 @@
 import { db, meta } from './db'
-import type { CoupleLook, Id, Item, Outfit, Profile, WearLog } from '../domain/types'
+import { ME, RECEIVED, type CoupleLook, type Id, type Item, type Outfit, type Owner, type Profile, type WearLog } from '../domain/types'
+import { ownerMapper, pickMainOwner } from './migrate'
 
 /**
  * Sauvegarde et partage par fichier, sans serveur.
  * - « sauvegarde » : tout le contenu du téléphone, à garder en lieu sûr (iCloud Drive, Google Drive…).
- * - « partage » : une tenue (avec ses vêtements) ou une garde-robe, à envoyer à l'autre téléphone.
+ * - « partage » : une tenue (avec ses vêtements) ou une garde-robe, à envoyer à l'autre téléphone,
+ *   où elle apparaît dans « Reçues ».
  * Les photos sont incluses en base64 : un fichier fait environ 100 à 150 Ko par vêtement.
  */
 
@@ -70,19 +72,17 @@ export async function exportOutfit(outfitId: Id) {
   const outfit = await db.outfits.get(outfitId)
   if (!outfit) throw new Error('Tenue introuvable')
   const items = (await db.items.bulkGet(outfit.itemIds)).filter((i): i is Item => !!i)
-  const profiles = (await db.profiles.where('id').equals(outfit.ownerId).toArray())
-  const blob = await pack('partage', { profiles, items, outfits: [outfit] })
+  const blob = await pack('partage', { items, outfits: [outfit] })
   return { blob, name: `tenue-${slug(outfit.name)}.json` }
 }
 
-export async function exportWardrobe(profileId: Id) {
-  const [profiles, items, outfits] = await Promise.all([
-    db.profiles.where('id').equals(profileId).toArray(),
-    db.items.where('ownerId').equals(profileId).filter((i) => !i.archived).toArray(),
-    db.outfits.where('ownerId').equals(profileId).toArray(),
+export async function exportWardrobe() {
+  const [items, outfits] = await Promise.all([
+    db.items.where('ownerId').equals(ME).filter((i) => !i.archived).toArray(),
+    db.outfits.where('ownerId').equals(ME).toArray(),
   ])
-  const blob = await pack('partage', { profiles, items, outfits })
-  return { blob, name: `garde-robe-${slug(profiles[0]?.name ?? profileId)}-${stamp()}.json` }
+  const blob = await pack('partage', { items, outfits })
+  return { blob, name: `garde-robe-partagee-${stamp()}.json` }
 }
 
 const slug = (s: string) =>
@@ -102,8 +102,10 @@ export interface ImportResult {
 
 /**
  * Fusionne le fichier dans le téléphone : les objets de même identifiant sont remplacés,
- * rien n'est supprimé. Les prénoms ne sont repris que d'une sauvegarde complète,
- * pour qu'un partage ne renomme pas les profils de l'autre téléphone.
+ * rien n'est supprimé.
+ * - sauvegarde : restaurée telle quelle (une ancienne sauvegarde à deux profils est
+ *   ramenée à un seul, comme la migration de la base) ;
+ * - partage : rangé dans « Reçues », sauf ce qui est déjà à soi sur ce téléphone.
  */
 export async function importFile(file: File): Promise<ImportResult> {
   let data: BackupFile
@@ -115,16 +117,33 @@ export async function importFile(file: File): Promise<ImportResult> {
   if (data.format !== FORMAT) throw new Error("Ce fichier n'est pas une sauvegarde de l'app.")
   if (data.version > VERSION) throw new Error("Ce fichier vient d'une version plus récente de l'app : mets-la à jour.")
 
-  const items: Item[] = await Promise.all(
-    data.items.map(async ({ photo, ...i }) => ({ ...i, photo: photo ? await dataUrlToBlob(photo) : undefined })),
+  const mine = new Set(
+    data.kind === 'partage'
+      ? [
+          ...((await db.items.bulkGet(data.items.map((i) => i.id))).filter((i) => i?.ownerId === ME).map((i) => i!.id)),
+          ...((await db.outfits.bulkGet(data.outfits.map((o) => o.id))).filter((o) => o?.ownerId === ME).map((o) => o!.id)),
+        ]
+      : [],
   )
-  await db.transaction('rw', [db.profiles, db.items, db.outfits, db.wearLogs, db.coupleLooks], async () => {
-    for (const p of data.profiles) {
-      if (data.kind === 'sauvegarde' || !(await db.profiles.get(p.id))) await db.profiles.put(p)
-    }
+  const toOwner =
+    data.kind === 'sauvegarde'
+      ? ownerMapper(pickMainOwner(data.items.map((i) => i.ownerId as string)))
+      : (): Owner => RECEIVED
+  const ownerFor = (id: Id, owner: string): Owner => (mine.has(id) ? ME : toOwner(owner))
+
+  const items: Item[] = await Promise.all(
+    data.items.map(async ({ photo, ...i }) => ({
+      ...i,
+      ownerId: ownerFor(i.id, i.ownerId),
+      photo: photo ? await dataUrlToBlob(photo) : undefined,
+    })),
+  )
+  const outfits = data.outfits.map((o) => ({ ...o, ownerId: ownerFor(o.id, o.ownerId) }))
+  const wearLogs = data.wearLogs.map((w) => ({ ...w, profileId: toOwner(w.profileId) }))
+  await db.transaction('rw', [db.items, db.outfits, db.wearLogs, db.coupleLooks], async () => {
     await db.items.bulkPut(items)
-    await db.outfits.bulkPut(data.outfits)
-    await db.wearLogs.bulkPut(data.wearLogs)
+    await db.outfits.bulkPut(outfits)
+    await db.wearLogs.bulkPut(wearLogs)
     await db.coupleLooks.bulkPut(data.coupleLooks)
   })
   return { kind: data.kind, items: items.length, outfits: data.outfits.length, wearLogs: data.wearLogs.length }

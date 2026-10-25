@@ -1,87 +1,70 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
-import { ensureDefaultProfiles } from './data/db'
-import { repo } from './data/repo'
+import { ensureProfile } from './data/db'
 import { requestPersistence } from './data/backup'
+import { Icon, type IconName } from './components/icons'
+import { Toaster } from './components/ui'
 import { TodayPage } from './pages/TodayPage'
 import { WardrobePage } from './pages/WardrobePage'
 import { OutfitsPage } from './pages/OutfitsPage'
 import { SettingsPage } from './pages/SettingsPage'
 
-type Tab = 'today' | 'wardrobe' | 'outfits' | 'settings'
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'today', label: 'Aujourd’hui', icon: '☀️' },
-  { id: 'wardrobe', label: 'Garde-robe', icon: '👕' },
-  { id: 'outfits', label: 'Tenues', icon: '🧩' },
-  { id: 'settings', label: 'Réglages', icon: '⚙️' },
-]
+export type Tab = 'today' | 'wardrobe' | 'outfits' | 'settings'
+/** Action à ouvrir en arrivant sur un onglet (ex. bouton « Ajouter un vêtement » d'un état vide). */
+export type Intent = 'add-item' | 'new-outfit' | undefined
+export type Go = (tab: Tab, intent?: Intent) => void
 
-const stored = (k: string) => {
-  try {
-    return localStorage.getItem(k)
-  } catch {
-    return null
-  }
-}
+const TABS: { id: Tab; label: string; icon: IconName }[] = [
+  { id: 'today', label: 'Aujourd’hui', icon: 'today' },
+  { id: 'wardrobe', label: 'Garde-robe', icon: 'hanger' },
+  { id: 'outfits', label: 'Tenues', icon: 'layers' },
+  { id: 'settings', label: 'Réglages', icon: 'settings' },
+]
 
 export default function App() {
   const [ready, setReady] = useState(false)
   const [tab, setTab] = useState<Tab>('today')
-  const [profileId, setProfileId] = useState(stored('profile') ?? 'lui')
-  const profiles = useLiveQuery(() => repo.profiles.list())
-  const profile = profiles?.find((p) => p.id === profileId)
+  const [intent, setIntent] = useState<Intent>()
 
   useEffect(() => {
-    void ensureDefaultProfiles().then(() => setReady(true))
+    // La migration éventuelle de la base (v3 : profil unique) s'exécute à la première ouverture.
+    void ensureProfile().then(() => setReady(true))
     void requestPersistence()
   }, [])
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('profile', profileId)
-    } catch {
-      /* navigation privée */
-    }
-    if (profile) document.documentElement.style.setProperty('--accent', profile.accent)
-  }, [profileId, profile])
+  const go: Go = (t, i) => {
+    setTab(t)
+    setIntent(i)
+    window.scrollTo({ top: 0 })
+  }
 
   if (!ready) return null
 
   return (
     <div className="app">
-      <header className="top">
-        <h1>Je mets quoi ?</h1>
-        <div className="profiles" role="tablist">
-          {profiles?.map((p) => (
-            <button
-              key={p.id}
-              role="tab"
-              aria-selected={p.id === profileId}
-              className={p.id === profileId ? 'on' : ''}
-              style={{ ['--c' as string]: p.accent }}
-              onClick={() => setProfileId(p.id)}
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      <main>
-        {tab === 'today' && <TodayPage profileId={profileId} />}
-        {tab === 'wardrobe' && <WardrobePage profileId={profileId} />}
-        {tab === 'outfits' && <OutfitsPage profileId={profileId} />}
-        {tab === 'settings' && <SettingsPage profileId={profileId} />}
+      <main id="contenu">
+        {tab === 'today' && <TodayPage go={go} />}
+        {tab === 'wardrobe' && <WardrobePage intent={intent} clearIntent={() => setIntent(undefined)} />}
+        {tab === 'outfits' && <OutfitsPage go={go} intent={intent} clearIntent={() => setIntent(undefined)} />}
+        {tab === 'settings' && <SettingsPage />}
       </main>
 
-      <nav className="tabs">
+      <nav className="tabs" aria-label="Navigation principale">
         {TABS.map((t) => (
-          <button key={t.id} className={t.id === tab ? 'on' : ''} onClick={() => setTab(t.id)}>
-            <span aria-hidden>{t.icon}</span>
+          <button
+            key={t.id}
+            className={t.id === tab ? 'on' : ''}
+            aria-current={t.id === tab ? 'page' : undefined}
+            onClick={() => go(t.id)}
+          >
+            <span className="tab-icon">
+              <Icon name={t.icon} size={24} />
+            </span>
             {t.label}
           </button>
         ))}
       </nav>
+      <Toaster />
     </div>
   )
 }
+

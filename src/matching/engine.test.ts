@@ -4,7 +4,7 @@ import { rankOutfits, targetWarmth, type MatchContext } from './engine'
 
 const item = (id: string, p: Partial<Item> = {}): Item => ({
   id,
-  ownerId: 'lui',
+  ownerId: 'moi',
   name: id,
   category: 'haut',
   colors: [],
@@ -22,7 +22,7 @@ const item = (id: string, p: Partial<Item> = {}): Item => ({
 
 const outfit = (id: string, itemIds: string[], p: Partial<Outfit> = {}): Outfit => ({
   id,
-  ownerId: 'lui',
+  ownerId: 'moi',
   name: id,
   itemIds,
   seasons: [],
@@ -119,7 +119,7 @@ describe('existant', () => {
     const items = [item('a'), item('b')]
     const r = rankOutfits(
       [outfit('hier', ['a']), outfit('autre', ['b'])],
-      ctx(items, { recentWear: [{ id: 'w', profileId: 'lui', date: '2026-10-25', outfitId: 'hier', itemIds: ['a'] }] }),
+      ctx(items, { recentWear: [{ id: 'w', profileId: 'moi', date: '2026-10-25', outfitId: 'hier', itemIds: ['a'] }] }),
     )
     expect(r[0].outfit.id).toBe('autre')
   })

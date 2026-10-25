@@ -13,7 +13,7 @@ import { ownerMapper, pickMainOwner } from './migrate'
 const FORMAT = 'garde-robe'
 const VERSION = 1
 
-type StoredItem = Omit<Item, 'photo'> & { photo?: string }
+type StoredItem = Omit<Item, 'photo' | 'materials'> & { photo?: string; materials?: Item['materials'] }
 
 interface BackupFile {
   format: typeof FORMAT
@@ -134,6 +134,8 @@ export async function importFile(file: File): Promise<ImportResult> {
   const items: Item[] = await Promise.all(
     data.items.map(async ({ photo, ...i }) => ({
       ...i,
+      // Fichiers créés avant l'ajout des matières.
+      materials: i.materials ?? [],
       ownerId: ownerFor(i.id, i.ownerId),
       photo: photo ? await dataUrlToBlob(photo) : undefined,
     })),

@@ -5,7 +5,7 @@ import type { Item, Occasion } from '../domain/types'
 import { repo, today } from '../data/repo'
 import { exportAll, lastBackup, shareOrDownload } from '../data/backup'
 import { rankOutfits, seasonOf } from '../matching/engine'
-import { Chips, Collage, EmptyState, PageHeader } from '../components/ui'
+import { Chips, Collage, EmptyState, ItemThumb, PageHeader } from '../components/ui'
 import { toast } from '../components/toast'
 import { Icon } from '../components/icons'
 import { locateMe, place, todayWeather, weatherIcon, type DayWeather } from '../context/weather'
@@ -141,98 +141,124 @@ export function TodayPage({ go }: { go: Go }) {
     <>
       {header}
       <section className="today">
-        <div className="context-row">
+        <div className="weather-hero">
           {typeof weather === 'object' ? (
-            <p className="weather-pill" title={weather.place}>
-              <span aria-hidden="true">{weatherIcon(weather.code)}</span>
-              <strong>{Math.round(weather.tempC)}°</strong>
-              <span className="muted">ressentis</span>
-              {weather.rain && <span className="rain">pluie {weather.rainProbability} %</span>}
-            </p>
+            <>
+              <p className="temp">
+                <strong>{Math.round(weather.tempC)}°</strong>
+                <span>
+                  ressentis
+                  {weather.place && weather.place !== 'Ma position' && <span className="muted"> · {weather.place}</span>}
+                  {weather.rain && <span className="rain">Pluie {weather.rainProbability} %</span>}
+                </span>
+              </p>
+              <span className="round-icon" aria-hidden="true">
+                <Icon name={weatherIcon(weather.code)} size={24} />
+              </span>
+            </>
           ) : weather === 'aucune' ? (
-            <button className="weather-pill action" onClick={() => void enableWeather()} disabled={locating}>
-              <Icon name="pin" size={18} /> {locating ? 'Localisation…' : 'Ajouter la météo'}
+            <button className="weather-add" onClick={() => void enableWeather()} disabled={locating}>
+              <span className="round-icon">
+                <Icon name="pin" size={20} />
+              </span>
+              <span>
+                <strong>{locating ? 'Localisation…' : 'Ajouter la météo'}</strong>
+                <span className="muted">pour adapter la tenue au temps qu’il fait</span>
+              </span>
             </button>
           ) : weather === 'erreur' ? (
-            <p className="weather-pill muted">Météo indisponible</p>
+            <p className="muted">Météo indisponible</p>
           ) : (
-            <p className="weather-pill skeleton" aria-hidden="true" />
+            <p className="temp skeleton" aria-hidden="true" />
           )}
         </div>
 
         {!wornOutfit && (
-          <div className="occasion">
-            <p className="label" id="occasion-label">
-              Pour quoi, aujourd’hui ?
-            </p>
-            <Chips
-              label="Occasion du jour"
-              scroll
-              options={OCCASIONS}
-              value={occasion ? [occasion] : []}
-              onChange={(v) => setOccasion(v.find((x) => x !== occasion))}
-            />
-          </div>
+          <Chips
+            label="Occasion du jour"
+            scroll
+            options={OCCASIONS}
+            value={occasion ? [occasion] : []}
+            onChange={(v) => setOccasion(v.find((x) => x !== occasion))}
+          />
         )}
 
         <article className={`outfit-hero ${wornOutfit ? 'worn' : ''}`} aria-live="polite">
-          <Collage items={pieces} className="hero-collage" />
-          <div className="hero-body">
-            {wornOutfit && (
-              <p className="badge success">
-                <Icon name="check" size={16} /> Portée aujourd’hui
-              </p>
-            )}
-            <h2>{current.outfit.name}</h2>
-            <p className="pieces">{pieces.map((p) => p.name).join(' · ')}</p>
-            {current.reasons.length > 0 && (
-              <ul className="reasons" aria-label="Pourquoi cette tenue">
-                {current.reasons.map((r) => (
-                  <li key={r}>{r}</li>
-                ))}
-              </ul>
-            )}
+          <div className="hero-media">
+            <Collage items={pieces} className="hero-collage" />
+            <div className="hero-overlay">
+              {wornOutfit ? (
+                <p className="glass badge">
+                  <Icon name="check" size={16} /> Portée aujourd’hui
+                </p>
+              ) : (
+                ranked.length > 1 && (
+                  <p className="glass">
+                    Idée {(skip % ranked.length) + 1} sur {ranked.length}
+                  </p>
+                )
+              )}
+              <h2>{current.outfit.name}</h2>
+              {current.reasons.length > 0 && (
+                <ul className="reasons" aria-label="Pourquoi cette tenue">
+                  {current.reasons.map((r) => (
+                    <li key={r} className="glass">
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
+
+          {wornOutfit ? (
+            <div className="hero-bar">
+              <button
+                className="btn ghost wide"
+                onClick={async () => {
+                  await repo.wear.undo()
+                  toast('C’est annulé.')
+                }}
+              >
+                <Icon name="undo" /> Changer de tenue
+              </button>
+            </div>
+          ) : (
+            <div className="hero-bar actions">
+              <button
+                className="btn dark"
+                onClick={() => setSkip((s) => s + 1)}
+                disabled={ranked.length < 2}
+                aria-label={`Autre idée, ${(skip % ranked.length) + 1} sur ${ranked.length}`}
+              >
+                <Icon name="refresh" /> Autre idée
+              </button>
+              <button
+                className="btn primary"
+                onClick={async () => {
+                  await repo.wear.log(current.outfit, { occasion })
+                  toast('Bonne journée !')
+                }}
+              >
+                <Icon name="check" /> Je la porte
+              </button>
+            </div>
+          )}
         </article>
 
-        {wornOutfit ? (
-          <button
-            className="btn ghost wide"
-            onClick={async () => {
-              await repo.wear.undo()
-              toast('C’est annulé.')
-            }}
-          >
-            <Icon name="undo" /> Changer de tenue
-          </button>
-        ) : (
-          <div className="actions">
-            <button
-              className="btn primary"
-              onClick={async () => {
-                await repo.wear.log(current.outfit, { occasion })
-                toast('Bonne journée !')
-              }}
-            >
-              <Icon name="check" /> Je la porte
-            </button>
-            <button
-              className="btn secondary"
-              onClick={() => setSkip((s) => s + 1)}
-              disabled={ranked.length < 2}
-              aria-label={`Autre idée, ${(skip % ranked.length) + 1} sur ${ranked.length}`}
-            >
-              <Icon name="refresh" /> Autre idée
-            </button>
-          </div>
-        )}
-        {!wornOutfit && ranked.length > 1 && (
-          <p className="counter" aria-hidden="true">
-            {Array.from({ length: Math.min(ranked.length, 8) }, (_, i) => (
-              <i key={i} className={i === skip % ranked.length ? 'on' : ''} />
+        <section aria-labelledby="pieces-title">
+          <h3 className="section-title" id="pieces-title">
+            Dans cette tenue
+          </h3>
+          <ul className="pieces">
+            {pieces.map((p) => (
+              <li key={p.id}>
+                <ItemThumb item={p} />
+                <span>{p.name}</span>
+              </li>
             ))}
-          </p>
-        )}
+          </ul>
+        </section>
 
         {backupReminder && (
           <div className="banner">

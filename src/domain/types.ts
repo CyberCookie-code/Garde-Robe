@@ -33,6 +33,21 @@ export interface ColorTag {
   family: ColorFamily
 }
 
+/** Matières principales d'un vêtement (plusieurs possibles, ex. coton + élasthanne → coton). */
+export type Material =
+  | 'coton'
+  | 'lin'
+  | 'laine'
+  | 'cachemire'
+  | 'soie'
+  | 'jean'
+  | 'cuir'
+  | 'daim'
+  | 'synthetique'
+  | 'technique'
+  | 'polaire'
+  | 'viscose'
+
 export type Pattern = 'uni' | 'rayures' | 'carreaux' | 'imprime' | 'fleuri' | 'autre'
 
 /** Occasions / événements (futur : filtre « événement »). */
@@ -69,6 +84,8 @@ export interface Item {
   category: Category
   colors: ColorTag[]
   pattern: Pattern
+  /** Vide = non renseigné. Sert aux critères météo, pluie et occasion. */
+  materials: Material[]
   seasons: Season[]
   /** 1 = très léger, 5 = très chaud. Sert au filtre météo. */
   warmth: 1 | 2 | 3 | 4 | 5

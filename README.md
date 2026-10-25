@@ -61,11 +61,16 @@ sur la branche `feat/synchro-supabase`, puis mise de côté : on préfère une v
 
 ## Interface
 
-- Mobile d'abord : barre d'onglets en bas (icônes SVG), gros titres, bouton « + » flottant à portée
+- Direction visuelle « app moderne douce » : fond sable dégradé, grandes cartes très arrondies,
+  chiffres XXL (température du jour), pilules, capsule sombre flottante pour la navigation et les
+  actions, un seul accent corail (texte sombre dessus pour garder un contraste suffisant). Police
+  Geist embarquée pour rester lisible hors ligne. La tenue du jour est une grande carte photo avec son
+  nom et les raisons du choix en surimpression.
+- Mobile d'abord : barre d'onglets flottante (icônes SVG, nom affiché sur l'onglet actif), gros titres, bouton « + » flottant à portée
   de pouce, boutons « Je la porte » / « Autre idée » toujours visibles sur l'écran du jour.
 - Ajout rapide : photo → catégorie → « Ajouter » (ou « Ajouter + suivant » pour enchaîner). La couleur
   est devinée sur la photo (fond retiré, centre analysé), le nom est proposé à partir de la catégorie
-  et de la couleur ; saisons, chaleur, style et motif sont dans « Plus de détails ».
+  et de la couleur ; les matières se cochent juste en dessous ; saisons, chaleur, style et motif sont dans « Plus de détails ».
 - Retours : messages courts en haut de l'écran, avec « Annuler » après une suppression ; « Changer de
   tenue » annule « Je la porte ».
 - Accessibilité : cibles tactiles de 44 px minimum, états `aria-pressed` / `aria-current`, panneaux
@@ -76,7 +81,8 @@ sur la branche `feat/synchro-supabase`, puis mise de côté : on préfère une v
 
 - **Profile** : un seul par téléphone (`moi`) ; les vêtements et tenues reçus par partage ont le propriétaire `recu`. Champs prévus pour la suite : `colorSeason`, `undertone`, `favoriteColors`, `avoidColors`.
 - **Item** (vêtement) : photo, catégorie, couleurs (nom + hex + famille), motif, saisons,
-  `warmth` 1-5 (pour la météo), `formality` 1-5 (pour l'événement), `waterproof`, compteur de port.
+  `warmth` 1-5 (pour la météo), `formality` 1-5 (pour l'événement), `waterproof`, `materials` (coton, lin, laine, cachemire, soie,
+  jean, cuir, daim, synthétique, technique, polaire, viscose ; plusieurs possibles), compteur de port.
 - **Outfit** (tenue) : liste de vêtements, saisons, `occasions`, `moods`, `minTemp`/`maxTemp`, favori,
   `source` (manuel / règles / IA).
 - **WearLog** : ce qui a été porté chaque jour, avec la météo, le mood et une note (sert à éviter
@@ -87,7 +93,10 @@ sur la branche `feat/synchro-supabase`, puis mise de côté : on préfère une v
 
 `matching/engine.ts` note chaque tenue enregistrée avec une liste de critères indépendants
 (`Criterion = (tenue, contexte) => { score, raison }`). Aujourd'hui : disponibilité des pièces,
-saison, pas portée récemment, favorite, météo, événement. La raison du choix est affichée.
+saison, pas portée récemment, favorite, météo, événement, matières. Les matières nuancent sans
+remplacer la chaleur et le style saisis : lin et coton par forte chaleur, laine et polaire par
+froid, daim, soie ou cachemire à éviter sous la pluie, matières habillées pour une soirée, techniques
+pour le sport (`domain/materials.ts`). Une pièce sans matière ne change rien au score. La raison du choix est affichée.
 Tests : `npm test` (Vitest), lancés aussi par la CI.
 
 Limite connue : le moteur classe les tenues enregistrées, il n'en compose pas. Par 3 °C, une tenue

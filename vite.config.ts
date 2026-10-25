@@ -10,13 +10,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      workbox: { globPatterns: ['**/*.{js,css,html,woff2}'] },
       manifest: {
         name: 'Je mets quoi ?',
         short_name: 'Je mets quoi',
         description: 'Notre garde-robe et la tenue du jour',
         lang: 'fr',
-        theme_color: '#f6f3ef',
-        background_color: '#f6f3ef',
+        theme_color: '#ece7e1',
+        background_color: '#ece7e1',
         display: 'standalone',
         start_url: '.',
         scope: '.',

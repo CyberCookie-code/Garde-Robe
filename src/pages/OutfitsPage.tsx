@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { CATEGORIES, OCCASIONS, SEASONS } from '../domain/catalog'
 import type { Id, Item, Occasion, Season } from '../domain/types'
 import { repo } from '../data/repo'
+import { exportOutfit, shareOrDownload } from '../data/backup'
 import { Chips, Empty, ItemThumb, Sheet } from '../components/ui'
 
 export function OutfitsPage({ profileId }: { profileId: Id }) {
@@ -36,6 +37,9 @@ export function OutfitsPage({ profileId }: { profileId: Id }) {
                   onClick={() => repo.outfits.update(o.id, { favorite: !o.favorite })}
                 >
                   {o.favorite ? '★' : '☆'}
+                </button>
+                <button className="ghost small" onClick={async () => shareOrDownload(await exportOutfit(o.id), o.name)}>
+                  Partager
                 </button>
                 <button className="ghost small" onClick={() => confirm('Supprimer cette tenue ?') && repo.outfits.remove(o.id)}>
                   Supprimer

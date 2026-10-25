@@ -137,7 +137,7 @@ function OutfitBuilder({ profileId, items, onDone }: { profileId: Id; items: Ite
         <Chips options={OCCASIONS} value={occasions} onChange={setOccasions} />
       </fieldset>
 
-      <button className="primary" disabled={selected.length < 2} onClick={() => void save()}>
+      <button className="primary" disabled={selected.length === 0} onClick={() => void save()}>
         Enregistrer ({selected.length} pièces)
       </button>
     </div>

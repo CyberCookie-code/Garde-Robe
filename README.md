@@ -74,15 +74,21 @@ sur la branche `feat/synchro-supabase`, puis mise de côté : on préfère une v
 
 `matching/engine.ts` note chaque tenue enregistrée avec une liste de critères indépendants
 (`Criterion = (tenue, contexte) => { score, raison }`). Aujourd'hui : disponibilité des pièces,
-saison, pas portée récemment, favorite. Le critère météo est écrit mais inactif tant qu'on ne
-fournit pas la météo. La raison du choix est affichée à l'utilisateur.
+saison, pas portée récemment, favorite, météo, événement. La raison du choix est affichée.
+Tests : `npm test` (Vitest), lancés aussi par la CI.
+
+Limite connue : le moteur classe les tenues enregistrées, il n'en compose pas. Par 3 °C, une tenue
+de cérémonie sans manteau est signalée « trop légère » mais aucun manteau n'est ajouté pour autant.
 
 ## Feuille de route proposée
 
 1. **MVP (fait)** : vêtements, tenues, tenue du jour, deux profils, stockage local.
 2. **Hébergement, sauvegarde et partage par fichier (fait)**.
-3. **Météo** : Open-Meteo (gratuit, sans clé) + géolocalisation, active le critère `byWeather`.
-4. **Événement et mood** : deux sélecteurs sur l'écran du jour, critères sur `occasions`/`formality`/`moods`.
+3. **Météo (fait)** : Open-Meteo (gratuit, sans clé), position mémorisée ou ville choisie dans
+   Réglages. Température ressentie moyenne de 8 h à 20 h comparée au niveau de chaleur de la pièce la
+   plus chaude ; bonus pour une pièce imperméable si la pluie est probable (≥ 50 %).
+4. **Événement (fait)** : choix sur l'écran du jour ; occasions de la tenue si renseignées, sinon
+   niveau d'habillé moyen des pièces. **Mood** : à faire, même principe.
 5. **Couleurs par règles** : harmonie entre les pièces (neutres + 1 couleur, complémentaires,
    camaïeu), et génération de tenues nouvelles à partir des vêtements, pas seulement des tenues enregistrées.
 6. **Couple** : proposer deux tenues assorties (CoupleLook).

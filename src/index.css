@@ -127,3 +127,10 @@ legend { font-weight: 500; margin-bottom: 8px; }
 }
 .form h2 { margin: 12px 0 0; font-size: 1.2rem; }
 .form p { margin: 0; }
+.day-context { display: grid; gap: 8px; margin: 6px 0 14px; }
+.day-context .weather { margin: 0; }
+.day-context .chips .chip { font-size: 0.8rem; padding: 5px 10px; }
+.small { font-size: 0.85rem; }
+.inline-form { display: flex; gap: 8px; }
+.inline-form input { flex: 1; }
+.result { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--line) !important; border-radius: 0; }

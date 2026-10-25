@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import type { Id } from '../domain/types'
 import { repo } from '../data/repo'
+import { WeatherSettings } from './WeatherSettings'
 import {
   exportAll,
   exportWardrobe,
@@ -45,6 +46,9 @@ export function SettingsPage({ profileId }: { profileId: Id }) {
           <input defaultValue={p.name} onBlur={(e) => repo.profiles.update(p.id, { name: e.target.value.trim() || p.name })} />
         </label>
       ))}
+
+      <h2>Météo</h2>
+      <WeatherSettings />
 
       <h2>Sauvegarde</h2>
       <p className="muted">

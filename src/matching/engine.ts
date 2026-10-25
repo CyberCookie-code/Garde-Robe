@@ -11,9 +11,9 @@ export interface MatchContext {
   season: Season
   items: Map<string, Item>
   recentWear: WearLog[]
-  weather?: { tempC: number; rain: boolean } // étape 2
-  occasion?: Occasion // étape 3
-  mood?: Mood // étape 3
+  weather?: { tempC: number; rain: boolean }
+  occasion?: Occasion
+  mood?: Mood // futur
 }
 
 export interface CriterionResult {
@@ -48,29 +48,73 @@ const byRecency: Criterion = (o, ctx) => {
 
 const byFavorite: Criterion = (o) => (o.favorite ? { score: 1, reason: 'favorite' } : { score: 0 })
 
-/** Actif seulement quand la météo est fournie (étape 2). */
+const itemsOf = (o: Outfit, ctx: MatchContext) =>
+  o.itemIds.map((id) => ctx.items.get(id)).filter((i): i is Item => !!i)
+
+/** Niveau de chaleur (1-5) conseillé pour une température ressentie. */
+export function targetWarmth(tempC: number) {
+  return tempC < 5 ? 5 : tempC < 12 ? 4 : tempC < 18 ? 3 : tempC < 24 ? 2 : 1
+}
+
+/** Actif quand la météo est connue. La pièce la plus chaude de la tenue donne son niveau. */
 const byWeather: Criterion = (o, ctx) => {
   if (!ctx.weather) return { score: 0 }
-  const items = o.itemIds.map((id) => ctx.items.get(id)).filter((i): i is Item => !!i)
+  const items = itemsOf(o, ctx)
   if (items.length === 0) return { score: 0 }
   const warmth = Math.max(...items.map((i) => i.warmth))
   const t = ctx.weather.tempC
-  const target = t < 5 ? 5 : t < 12 ? 4 : t < 18 ? 3 : t < 24 ? 2 : 1
-  const diff = Math.abs(warmth - target)
-  let score = 3 - diff * 2
-  let reason = diff === 0 ? `adaptée à ${Math.round(t)}°C` : undefined
+  const gap = warmth - targetWarmth(t)
+  let score = 3 - Math.abs(gap) * 2
+  let reason = gap === 0 ? `adaptée à ${Math.round(t)}°C` : gap < -1 ? 'trop légère pour aujourd’hui' : gap > 1 ? 'trop chaude pour aujourd’hui' : undefined
   if (ctx.weather.rain && items.some((i) => i.waterproof)) {
-    score += 2
+    score += 3
     reason = 'prévue pour la pluie'
   }
   return { score, reason }
+}
+
+/** Niveau d'habillé (1-5) attendu pour chaque occasion. */
+export const OCCASION_FORMALITY: Record<Occasion, number> = {
+  sport: 1,
+  'week-end': 2,
+  quotidien: 2,
+  travail: 3,
+  soiree: 4,
+  ceremonie: 5,
+}
+
+const OCCASION_LABEL: Record<Occasion, string> = {
+  sport: 'pour le sport',
+  'week-end': 'pour le week-end',
+  quotidien: 'pour tous les jours',
+  travail: 'pour le travail',
+  soiree: 'pour une soirée',
+  ceremonie: 'pour une cérémonie',
+}
+
+/**
+ * Actif quand l'événement du jour est choisi.
+ * Si la tenue a des occasions renseignées, on s'y fie ; sinon on compare le niveau
+ * d'habillé moyen de ses pièces à celui attendu.
+ */
+const byOccasion: Criterion = (o, ctx) => {
+  if (!ctx.occasion) return { score: 0 }
+  if (o.occasions.length > 0)
+    return o.occasions.includes(ctx.occasion)
+      ? { score: 5, reason: OCCASION_LABEL[ctx.occasion] }
+      : { score: -5, reason: 'prévue pour une autre occasion' }
+  const items = itemsOf(o, ctx)
+  if (items.length === 0) return { score: 0 }
+  const formality = items.reduce((s, i) => s + i.formality, 0) / items.length
+  const diff = Math.abs(formality - OCCASION_FORMALITY[ctx.occasion])
+  return { score: 2 - diff * 2, reason: diff <= 0.5 ? OCCASION_LABEL[ctx.occasion] : undefined }
 }
 
 /** Une tenue dont un vêtement a été supprimé n'est plus proposée. */
 const byAvailability: Criterion = (o, ctx) =>
   o.itemIds.every((id) => ctx.items.has(id)) ? { score: 0 } : { score: 0, exclude: true }
 
-export const CRITERIA: Criterion[] = [byAvailability, bySeason, byRecency, byFavorite, byWeather]
+export const CRITERIA: Criterion[] = [byAvailability, bySeason, byRecency, byFavorite, byWeather, byOccasion]
 
 export interface Suggestion {
   outfit: Outfit

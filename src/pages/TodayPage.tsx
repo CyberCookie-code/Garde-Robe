@@ -1,11 +1,21 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useState } from 'react'
-import { CATEGORIES } from '../domain/catalog'
-import type { Id, Item } from '../domain/types'
+import { useEffect, useState } from 'react'
+import { CATEGORIES, OCCASIONS } from '../domain/catalog'
+import type { Id, Item, Occasion } from '../domain/types'
 import { repo, today } from '../data/repo'
 import { exportAll, lastBackup, shareOrDownload } from '../data/backup'
 import { rankOutfits, seasonOf } from '../matching/engine'
-import { Empty, ItemThumb } from '../components/ui'
+import { Chips, Empty, ItemThumb } from '../components/ui'
+import { locateMe, place, todayWeather, weatherIcon, type DayWeather } from '../context/weather'
+
+const occasionKey = (date: string) => `occasion:${date}`
+const readOccasion = (date: string) => {
+  try {
+    return (localStorage.getItem(occasionKey(date)) as Occasion | null) ?? undefined
+  } catch {
+    return undefined
+  }
+}
 
 const catOrder = (i: Item) => CATEGORIES.findIndex((c) => c.value === i.category)
 
@@ -22,12 +32,52 @@ export function TodayPage({ profileId }: { profileId: Id }) {
     return { outfits, items, recentWear, worn, backupAt }
   }, [profileId, date])
   const [skip, setSkip] = useState(0)
+  const [occasion, setOccasionState] = useState<Occasion | undefined>(() => readOccasion(date))
+  const [weather, setWeather] = useState<DayWeather | 'aucune' | 'erreur'>()
+  const [weatherTick, setWeatherTick] = useState(0)
+
+  useEffect(() => {
+    let alive = true
+    todayWeather(date)
+      .then((w) => alive && setWeather(w ?? 'aucune'))
+      .catch(() => alive && setWeather('erreur'))
+    return () => {
+      alive = false
+    }
+  }, [date, weatherTick])
+
+  const setOccasion = (o: Occasion | undefined) => {
+    setOccasionState(o)
+    setSkip(0)
+    try {
+      if (o) localStorage.setItem(occasionKey(date), o)
+      else localStorage.removeItem(occasionKey(date))
+    } catch {
+      /* navigation privée */
+    }
+  }
+
+  const enableWeather = async () => {
+    try {
+      await place.set(await locateMe())
+      setWeatherTick((t) => t + 1)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   if (!data) return null
   const items = new Map(data.items.map((i) => [i.id, i]))
   // On exclut la tenue déjà portée aujourd'hui du calcul de récence pour qu'elle reste affichée.
   const recentWear = data.recentWear.filter((w) => w.date !== date)
-  const ranked = rankOutfits(data.outfits, { date, season: seasonOf(new Date()), items, recentWear })
+  const ranked = rankOutfits(data.outfits, {
+    date,
+    season: seasonOf(new Date()),
+    items,
+    recentWear,
+    occasion,
+    weather: typeof weather === 'object' ? weather : undefined,
+  })
 
   if (ranked.length === 0)
     return <Empty>Pas encore de tenue enregistrée. Ajoute des vêtements puis compose une tenue dans l'onglet Tenues.</Empty>
@@ -53,6 +103,31 @@ export function TodayPage({ profileId }: { profileId: Id }) {
         </div>
       )}
       <p className="muted">{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+      <div className="day-context">
+        {typeof weather === 'object' ? (
+          <p className="weather">
+            {weatherIcon(weather.code)} <strong>{Math.round(weather.tempC)}°C</strong> ressentis
+            <span className="muted">
+              {' '}
+              ({Math.round(weather.minC)}° à {Math.round(weather.maxC)}°)
+              {weather.rain ? ` · pluie probable (${weather.rainProbability} %)` : ''}
+            </span>
+          </p>
+        ) : weather === 'aucune' ? (
+          <button className="ghost small" onClick={() => void enableWeather()}>
+            📍 Tenir compte de la météo
+          </button>
+        ) : weather === 'erreur' ? (
+          <p className="muted small">Météo indisponible (hors-ligne ?)</p>
+        ) : null}
+        {!wornOutfit && (
+          <Chips
+            options={OCCASIONS}
+            value={occasion ? [occasion] : []}
+            onChange={(v) => setOccasion(v.find((x) => x !== occasion))}
+          />
+        )}
+      </div>
       <h2>{current.outfit.name}</h2>
       {current.reasons.length > 0 && <p className="reasons">{current.reasons.join(' · ')}</p>}
       <div className="today-items">

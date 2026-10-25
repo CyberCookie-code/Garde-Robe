@@ -9,6 +9,7 @@ const item = (id: string, p: Partial<Item> = {}): Item => ({
   category: 'haut',
   colors: [],
   pattern: 'uni',
+  materials: [],
   seasons: [],
   warmth: 3,
   formality: 2,
@@ -106,6 +107,49 @@ describe('événement', () => {
     const chic = outfit('chic', ['costume'])
     expect(rankOutfits([cool, chic], ctx(items, { occasion: 'ceremonie' }))[0].outfit.id).toBe('chic')
     expect(rankOutfits([cool, chic], ctx(items, { occasion: 'sport' }))[0].outfit.id).toBe('cool')
+  })
+})
+
+describe('matières', () => {
+  // Même chaleur et même style : seules les matières départagent.
+  const items = [
+    item('lin', { materials: ['lin'] }),
+    item('laine', { materials: ['laine'] }),
+    item('daim', { category: 'chaussures', materials: ['daim'] }),
+    item('baskets', { category: 'chaussures', materials: ['synthetique'] }),
+    item('jean', { category: 'bas', materials: ['jean'] }),
+    item('legging', { category: 'bas', materials: ['technique'] }),
+    item('sans', {}),
+  ]
+
+  it('préfère le lin quand il fait chaud et la laine quand il fait froid', () => {
+    const lin = outfit('lin', ['lin'])
+    const laine = outfit('laine', ['laine'])
+    const chaud = rankOutfits([laine, lin], ctx(items, { weather: { tempC: 27, rain: false } }))
+    expect(chaud[0].outfit.id).toBe('lin')
+    expect(chaud[0].reasons).toContain('matières qui respirent')
+    expect(chaud[1].reasons).toContain('matières chaudes pour la saison')
+    const froid = rankOutfits([lin, laine], ctx(items, { weather: { tempC: 3, rain: false } }))
+    expect(froid[0].outfit.id).toBe('laine')
+  })
+
+  it('évite le daim sous la pluie', () => {
+    const r = rankOutfits(
+      [outfit('daim', ['sans', 'daim']), outfit('baskets', ['sans', 'baskets'])],
+      ctx(items, { weather: { tempC: 15, rain: true } }),
+    )
+    expect(r[0].outfit.id).toBe('baskets')
+    expect(r[1].reasons).toContain('daim à éviter sous la pluie')
+  })
+
+  it('préfère les matières techniques pour le sport', () => {
+    const r = rankOutfits([outfit('jean', ['jean']), outfit('legging', ['legging'])], ctx(items, { occasion: 'sport' }))
+    expect(r[0].outfit.id).toBe('legging')
+  })
+
+  it('reste neutre sans matière, météo ni occasion', () => {
+    expect(rankOutfits([outfit('sans', ['sans'])], ctx(items, { weather: { tempC: 30, rain: true } }))[0].reasons.join()).not.toContain('matière')
+    expect(rankOutfits([outfit('lin', ['lin'])], ctx(items))[0].reasons).toHaveLength(0)
   })
 })
 

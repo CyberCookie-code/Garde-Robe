@@ -123,12 +123,14 @@ export async function todayWeather(date: string): Promise<DayWeather | undefined
 }
 
 /** Codes WMO utilisés par Open-Meteo. */
-export function weatherIcon(code: number) {
-  if (code >= 95) return '⛈️'
-  if (code >= 71 && code <= 86 && !(code >= 80 && code <= 82)) return '❄️'
-  if (code >= 51) return '🌧️'
-  if (code >= 45) return '🌫️'
-  if (code >= 2) return '☁️'
-  if (code === 1) return '🌤️'
-  return '☀️'
+export type WeatherKind = 'sun' | 'cloud' | 'fog' | 'rain' | 'snow' | 'storm'
+
+/** Famille d'icône pour un code météo WMO. */
+export function weatherIcon(code: number): WeatherKind {
+  if (code >= 95) return 'storm'
+  if (code >= 71 && code <= 86 && !(code >= 80 && code <= 82)) return 'snow'
+  if (code >= 51) return 'rain'
+  if (code >= 45) return 'fog'
+  if (code >= 2) return 'cloud'
+  return 'sun'
 }

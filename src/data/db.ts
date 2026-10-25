@@ -49,6 +49,18 @@ db.version(3)
     await tx.table('profiles').add({ id: ME })
   })
 
+// v4 : matières des vêtements, vides tant qu'elles ne sont pas renseignées.
+db.version(4)
+  .stores({})
+  .upgrade((tx) =>
+    tx
+      .table('items')
+      .toCollection()
+      .modify((i: { materials?: string[] }) => {
+        i.materials ??= []
+      }),
+  )
+
 export const meta = {
   get: async (key: string) => (await db.meta.get(key))?.value,
   set: (key: string, value: string) => db.meta.put({ key, value }),

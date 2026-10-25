@@ -25,7 +25,7 @@ describe('summarize', () => {
     expect(w.tempC).toBe(14)
     expect(w.rainProbability).toBe(70)
     expect(w.rain).toBe(true)
-    expect(weatherIcon(w.code)).toBe('🌧️')
+    expect(weatherIcon(w.code)).toBe('rain')
   })
 
   it('échoue proprement sans données pour le jour', () => {

@@ -1,3 +1,4 @@
+import { MATERIALS, hasTrait } from '../domain/materials'
 import type { Item, Mood, Occasion, Outfit, Season, WearLog } from '../domain/types'
 
 /**
@@ -110,11 +111,48 @@ const byOccasion: Criterion = (o, ctx) => {
   return { score: 2 - diff * 2, reason: diff <= 0.5 ? OCCASION_LABEL[ctx.occasion] : undefined }
 }
 
+/**
+ * Nuance météo et occasion avec les matières renseignées.
+ * Une pièce sans matière ne compte pas : le critère reste neutre tant que rien n'est saisi.
+ */
+const byMaterial: Criterion = (o, ctx) => {
+  if (!ctx.weather && !ctx.occasion) return { score: 0 }
+  const items = itemsOf(o, ctx).filter((i) => i.materials?.length)
+  if (items.length === 0) return { score: 0 }
+  const all = items.flatMap((i) => i.materials)
+  const clothes = items.filter((i) => i.category !== 'chaussures' && i.category !== 'accessoire').flatMap((i) => i.materials)
+  const found: { score: number; reason: string }[] = []
+  if (ctx.weather) {
+    const t = ctx.weather.tempC
+    if (t >= 24) {
+      if (hasTrait(clothes, 'heavy')) found.push({ score: -2, reason: 'matières chaudes pour la saison' })
+      else if (hasTrait(clothes, 'breathable')) found.push({ score: 2, reason: 'matières qui respirent' })
+    } else if (t < 8) {
+      if (hasTrait(clothes, 'insulating')) found.push({ score: 2, reason: 'matières qui tiennent chaud' })
+      if (clothes.includes('lin')) found.push({ score: -2, reason: 'lin un peu frais aujourd’hui' })
+    }
+    if (ctx.weather.rain && !items.some((i) => i.waterproof)) {
+      const fragile = all.find((m) => MATERIALS[m].rainSensitive)
+      if (fragile) found.push({ score: -3, reason: `${MATERIALS[fragile].label.toLowerCase()} à éviter sous la pluie` })
+    }
+  }
+  if (ctx.occasion === 'soiree' || ctx.occasion === 'ceremonie') {
+    if (hasTrait(all, 'dressy')) found.push({ score: 2, reason: 'matières habillées' })
+  } else if (ctx.occasion === 'sport') {
+    if (hasTrait(all, 'sporty')) found.push({ score: 2, reason: 'matières faites pour bouger' })
+    else if (all.some((m) => m === 'jean' || m === 'cuir')) found.push({ score: -3, reason: 'matières peu pratiques pour le sport' })
+  }
+  if (found.length === 0) return { score: 0 }
+  // On affiche la raison qui pèse le plus, les autres comptent quand même dans le score.
+  const main = found.reduce((a, b) => (Math.abs(b.score) > Math.abs(a.score) ? b : a))
+  return { score: found.reduce((s, f) => s + f.score, 0), reason: main.reason }
+}
+
 /** Une tenue dont un vêtement a été supprimé n'est plus proposée. */
 const byAvailability: Criterion = (o, ctx) =>
   o.itemIds.every((id) => ctx.items.has(id)) ? { score: 0 } : { score: 0, exclude: true }
 
-export const CRITERIA: Criterion[] = [byAvailability, bySeason, byRecency, byFavorite, byWeather, byOccasion]
+export const CRITERIA: Criterion[] = [byAvailability, bySeason, byRecency, byFavorite, byWeather, byOccasion, byMaterial]
 
 export interface Suggestion {
   outfit: Outfit

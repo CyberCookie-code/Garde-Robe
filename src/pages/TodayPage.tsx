@@ -143,11 +143,11 @@ export function TodayPage({ go }: { go: Go }) {
       <section className="today">
         <div className="context-row">
           {typeof weather === 'object' ? (
-            <p className="weather-pill" title={weather.place}>
-              <span aria-hidden="true">{weatherIcon(weather.code)}</span>
+            <p className="weather-pill">
+              <Icon name={weatherIcon(weather.code)} size={20} />
               <strong>{Math.round(weather.tempC)}°</strong>
-              <span className="muted">ressentis</span>
-              {weather.rain && <span className="rain">pluie {weather.rainProbability} %</span>}
+              <span className="muted">ressentis{weather.place && weather.place !== 'Ma position' ? ` · ${weather.place}` : ''}</span>
+              {weather.rain && <span className="rain">Pluie {weather.rainProbability} %</span>}
             </p>
           ) : weather === 'aucune' ? (
             <button className="weather-pill action" onClick={() => void enableWeather()} disabled={locating}>
@@ -176,21 +176,34 @@ export function TodayPage({ go }: { go: Go }) {
         )}
 
         <article className={`outfit-hero ${wornOutfit ? 'worn' : ''}`} aria-live="polite">
-          <Collage items={pieces} className="hero-collage" />
-          <div className="hero-body">
-            {wornOutfit && (
+          <div className="hero-title">
+            {wornOutfit ? (
               <p className="badge success">
                 <Icon name="check" size={16} /> Portée aujourd’hui
               </p>
+            ) : (
+              ranked.length > 1 && (
+                <p className="kicker">
+                  Idée {(skip % ranked.length) + 1} sur {ranked.length}
+                </p>
+              )
             )}
             <h2>{current.outfit.name}</h2>
-            <p className="pieces">{pieces.map((p) => p.name).join(' · ')}</p>
+          </div>
+          <Collage items={pieces} className="hero-collage" />
+          <div className="hero-body">
+            <ol className="pieces">
+              {pieces.map((p, i) => (
+                <li key={p.id}>
+                  <span className="num">{String(i + 1).padStart(2, '0')}</span>
+                  <span>{p.name}</span>
+                </li>
+              ))}
+            </ol>
             {current.reasons.length > 0 && (
-              <ul className="reasons" aria-label="Pourquoi cette tenue">
-                {current.reasons.map((r) => (
-                  <li key={r}>{r}</li>
-                ))}
-              </ul>
+              <p className="reasons">
+                <span className="kicker">Pourquoi</span> {current.reasons.join(' · ')}
+              </p>
             )}
           </div>
         </article>
@@ -225,13 +238,6 @@ export function TodayPage({ go }: { go: Go }) {
               <Icon name="refresh" /> Autre idée
             </button>
           </div>
-        )}
-        {!wornOutfit && ranked.length > 1 && (
-          <p className="counter" aria-hidden="true">
-            {Array.from({ length: Math.min(ranked.length, 8) }, (_, i) => (
-              <i key={i} className={i === skip % ranked.length ? 'on' : ''} />
-            ))}
-          </p>
         )}
 
         {backupReminder && (

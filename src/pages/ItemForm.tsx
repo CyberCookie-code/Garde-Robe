@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CATEGORIES, PALETTE, PATTERNS, SEASONS, labelOf } from '../domain/catalog'
-import type { Category, ColorTag, Item, Pattern, Season } from '../domain/types'
+import { MATERIAL_OPTIONS } from '../domain/materials'
+import type { Category, ColorTag, Item, Material, Pattern, Season } from '../domain/types'
 import { compressPhoto, guessColors } from '../data/photo'
 import { repo } from '../data/repo'
 import { Chips, Sheet } from '../components/ui'
@@ -35,6 +36,7 @@ export function ItemForm({ item, onClose }: Props) {
   const [category, setCategory] = useState<Category | undefined>(item?.category)
   const [colors, setColors] = useState<ColorTag[]>(item?.colors ?? [])
   const [guessed, setGuessed] = useState(false)
+  const [materials, setMaterials] = useState<Material[]>(item?.materials ?? [])
   const [pattern, setPattern] = useState<Pattern>(item?.pattern ?? 'uni')
   const [seasons, setSeasons] = useState<Season[]>(item?.seasons ?? [])
   const [warmth, setWarmth] = useState<Level>(item?.warmth ?? 2)
@@ -82,6 +84,7 @@ export function ItemForm({ item, onClose }: Props) {
     setColors([])
     setGuessed(false)
     setPattern('uni')
+    setMaterials([])
     setWaterproof(false)
     setWarmthTouched(false)
     if (category) setWarmth(DEFAULT_WARMTH[category])
@@ -90,7 +93,7 @@ export function ItemForm({ item, onClose }: Props) {
   async function save(again: boolean) {
     if (!category) return
     setBusy(true)
-    const data = { photo, name: name.trim() || autoName(), category, colors, pattern, seasons, warmth, formality, waterproof }
+    const data = { photo, name: name.trim() || autoName(), category, colors, materials, pattern, seasons, warmth, formality, waterproof }
     try {
       if (item) {
         await repo.items.update(item.id, data)
@@ -125,7 +128,7 @@ export function ItemForm({ item, onClose }: Props) {
   )
 
   return (
-    <Sheet title={editing ? 'Modifier le vêtement' : added ? `Nouveau vêtement (${added} ajouté${added > 1 ? 's' : ''})` : 'Nouveau vêtement'} onClose={onClose} footer={footer}>
+    <Sheet title={editing ? 'Modifier le vêtement' : added ? `Vêtement n° ${added + 1}` : 'Nouveau vêtement'} onClose={onClose} footer={footer}>
       <form className="form" onSubmit={(e) => e.preventDefault()}>
         <label className={`photo-input ${preview ? 'has-photo' : ''}`}>
           {preview ? (
@@ -187,6 +190,13 @@ export function ItemForm({ item, onClose }: Props) {
               )
             })}
           </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>
+            Matière{materials.length > 1 ? 's' : ''} <span className="hint">aide pour la météo et les occasions</span>
+          </legend>
+          <Chips label="Matières" options={MATERIAL_OPTIONS} value={materials} onChange={setMaterials} />
         </fieldset>
 
         <label className="field">

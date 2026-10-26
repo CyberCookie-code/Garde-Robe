@@ -77,6 +77,17 @@ sur la branche `feat/synchro-supabase`, puis mise de côté : on préfère une v
   `role="dialog"` fermables avec Échap, focus visible, animations coupées si « réduire les animations ».
 - Mode sombre automatique (selon le réglage du téléphone).
 
+## Détourage et couleurs
+
+À chaque nouvelle photo, le fond est retiré sur le téléphone (rien n'est envoyé), puis la couleur est devinée sur le vêtement seul.
+
+- Modèle [U²-Net « p »](https://github.com/xuebinqin/U-2-Net) (licence Apache 2.0, fichier `public/models/u2netp.onnx` repris de [rembg](https://github.com/danielgatis/rembg)), exécuté par `onnxruntime-web` en WebAssembly, sur un seul fil (GitHub Pages n'envoie pas les en-têtes COOP/COEP).
+- Poids : moteur 14,2 Mo (3,7 Mo compressé) + modèle 4,6 Mo, chargés au premier détourage seulement, puis gardés par le service worker (cache `detourage`) : ça marche ensuite hors ligne.
+- Environ 2 s par photo sur un ordinateur ; compter plus sur un téléphone.
+- Résultat enregistré en WebP transparent (PNG si le navigateur ne sait pas écrire le WebP), recadré, 720 px au plus.
+- Limites : une personne sur la photo est gardée avec le vêtement ; avec deux objets (une paire de chaussures), l'un peut être à moitié effacé ; un fond chargé peut laisser des restes. « Remettre le fond » revient à la photo d'origine, et le détourage automatique se coupe dans Réglages.
+- La couleur reste une suggestion : une ombre peut faire passer un blanc pour du gris ou un rouge pour du bordeaux.
+
 ## Modèle de données
 
 - **Profile** : un seul par téléphone (`moi`) ; les vêtements et tenues reçus par partage ont le propriétaire `recu`. Champs prévus pour la suite : `colorSeason`, `undertone`, `favoriteColors`, `avoidColors`.

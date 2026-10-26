@@ -1,5 +1,6 @@
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react'
 import { useBlobUrl } from './hooks'
+import { isCutout } from '../data/photo'
 import { dismissToast, subscribeToasts, getToasts } from './toast'
 import type { Item } from '../domain/types'
 import { Icon, type IconName } from './icons'
@@ -7,7 +8,7 @@ import { Icon, type IconName } from './icons'
 export function ItemThumb({ item, className = '' }: { item: Item; className?: string }) {
   const url = useBlobUrl(item.photo)
   return (
-    <div className={`thumb ${className}`}>
+    <div className={`thumb ${isCutout(item.photo) ? 'cutout' : ''} ${className}`}>
       {url ? (
         <img src={url} alt={item.name} loading="lazy" />
       ) : (

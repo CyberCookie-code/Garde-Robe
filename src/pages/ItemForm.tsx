@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { CATEGORIES, PALETTE, PATTERNS, SEASONS, labelOf } from '../domain/catalog'
 import { MATERIAL_OPTIONS } from '../domain/materials'
 import type { Category, ColorTag, Item, Material, Pattern, Season } from '../domain/types'
-import { compressPhoto, guessColors } from '../data/photo'
+import { compressPhoto, guessColors, isCutout } from '../data/photo'
+import { prefs } from '../data/prefs'
 import { repo } from '../data/repo'
 import { Chips, Sheet } from '../components/ui'
 import { toast } from '../components/toast'
@@ -36,6 +37,12 @@ export function ItemForm({ item, onClose }: Props) {
   const [category, setCategory] = useState<Category | undefined>(item?.category)
   const [colors, setColors] = useState<ColorTag[]>(item?.colors ?? [])
   const [guessed, setGuessed] = useState(false)
+  /** Photo d'origine et version détourée de la photo prise dans ce formulaire, pour basculer de l'une à l'autre. */
+  const [original, setOriginal] = useState<Blob>()
+  const [cut, setCut] = useState<Blob>()
+  const [cutting, setCutting] = useState<false | 'first' | 'again'>(false)
+  const pickedColors = useRef(editing && (item?.colors.length ?? 0) > 0)
+  const lastPhoto = useRef<Blob | undefined>(undefined)
   const [materials, setMaterials] = useState<Material[]>(item?.materials ?? [])
   const [pattern, setPattern] = useState<Pattern>(item?.pattern ?? 'uni')
   const [seasons, setSeasons] = useState<Season[]>(item?.seasons ?? [])
@@ -49,6 +56,7 @@ export function ItemForm({ item, onClose }: Props) {
 
   const toggleColor = (c: ColorTag) => {
     setGuessed(false)
+    pickedColors.current = true
     setColors((cs) => (cs.some((x) => x.hex === c.hex) ? cs.filter((x) => x.hex !== c.hex) : [...cs, c]))
   }
 
@@ -57,20 +65,51 @@ export function ItemForm({ item, onClose }: Props) {
     if (!warmthTouched) setWarmth(DEFAULT_WARMTH[c])
   }
 
+  /** Couleurs devinées sur la photo affichée, sauf si l'utilisateur les a choisies lui-même. */
+  async function guessFrom(blob: Blob) {
+    if (pickedColors.current) return
+    try {
+      const found = await guessColors(blob, PALETTE)
+      if (found.length && !pickedColors.current && lastPhoto.current === blob) {
+        setColors(found)
+        setGuessed(true)
+      }
+    } catch {
+      /* suggestion seulement */
+    }
+  }
+
+  function show(blob: Blob) {
+    lastPhoto.current = blob
+    setPhoto(blob)
+    void guessFrom(blob)
+  }
+
+  async function cutoutPhoto(src: Blob) {
+    setCutting(prefs.cutoutReady.get() ? 'again' : 'first')
+    try {
+      const { removeBackground } = await import('../data/cutout')
+      const out = await removeBackground(src)
+      prefs.cutoutReady.set()
+      // L'utilisateur a pu reprendre une photo entre-temps : on ne remplace que la bonne.
+      if (lastPhoto.current !== src) return
+      setCut(out)
+      show(out)
+    } catch (e) {
+      if (lastPhoto.current !== src) return
+      const { CutoutError } = await import('../data/cutout')
+      toast(e instanceof CutoutError ? `${e.message} Photo gardée telle quelle.` : 'Détourage impossible pour l’instant. Photo gardée telle quelle.')
+    } finally {
+      setCutting(false)
+    }
+  }
+
   async function onPhoto(file: File) {
     const blob = await compressPhoto(file)
-    setPhoto(blob)
-    if (colors.length === 0 || guessed) {
-      try {
-        const found = await guessColors(blob, PALETTE)
-        if (found.length) {
-          setColors(found)
-          setGuessed(true)
-        }
-      } catch {
-        /* suggestion seulement */
-      }
-    }
+    setOriginal(blob)
+    setCut(undefined)
+    show(blob)
+    if (prefs.autoCutout.get()) void cutoutPhoto(blob)
   }
 
   const autoName = () => {
@@ -79,7 +118,11 @@ export function ItemForm({ item, onClose }: Props) {
   }
 
   function reset() {
+    lastPhoto.current = undefined
+    pickedColors.current = false
     setPhoto(undefined)
+    setOriginal(undefined)
+    setCut(undefined)
     setName('')
     setColors([])
     setGuessed(false)
@@ -117,11 +160,11 @@ export function ItemForm({ item, onClose }: Props) {
   const footer = (
     <div className="foot-actions">
       {!editing && (
-        <button className="btn secondary" disabled={!category || busy} onClick={() => void save(true)}>
+        <button className="btn secondary" disabled={!category || busy || !!cutting} onClick={() => void save(true)}>
           Ajouter + suivant
         </button>
       )}
-      <button className="btn primary" disabled={!category || busy} onClick={() => void save(false)}>
+      <button className="btn primary" disabled={!category || busy || !!cutting} onClick={() => void save(false)}>
         {editing ? 'Enregistrer' : 'Ajouter'}
       </button>
     </div>
@@ -130,13 +173,22 @@ export function ItemForm({ item, onClose }: Props) {
   return (
     <Sheet title={editing ? 'Modifier le vêtement' : added ? `Vêtement n° ${added + 1}` : 'Nouveau vêtement'} onClose={onClose} footer={footer}>
       <form className="form" onSubmit={(e) => e.preventDefault()}>
-        <label className={`photo-input ${preview ? 'has-photo' : ''}`}>
+        <label className={`photo-input ${preview ? 'has-photo' : ''} ${isCutout(photo) ? 'cutout' : ''}`}>
           {preview ? (
             <>
               <img src={preview} alt="Photo du vêtement" />
-              <span className="photo-change">
-                <Icon name="camera" size={18} /> Changer
-              </span>
+              {!cutting && (
+                <span className="photo-change">
+                  <Icon name="camera" size={18} /> Changer
+                </span>
+              )}
+              {cutting && (
+                <span className="photo-busy" role="status">
+                  <span className="spinner" aria-hidden="true" />
+                  Détourage…
+                  {cutting === 'first' && <small>Premier usage : téléchargement unique de l’outil, puis il marche hors ligne.</small>}
+                </span>
+              )}
             </>
           ) : (
             <span className="photo-cta">
@@ -151,6 +203,7 @@ export function ItemForm({ item, onClose }: Props) {
             type="file"
             accept="image/*"
             className="visually-hidden"
+            disabled={!!cutting}
             onChange={(e) => {
               const f = e.target.files?.[0]
               e.target.value = ''
@@ -158,6 +211,28 @@ export function ItemForm({ item, onClose }: Props) {
             }}
           />
         </label>
+
+        {photo && !cutting && (
+          <div className="photo-tools">
+            {isCutout(photo) ? (
+              <>
+                <span className="muted">Fond retiré</span>
+                {original && (
+                  <button type="button" className="btn small ghost" onClick={() => show(original)}>
+                    Remettre le fond
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="muted">Photo d’origine</span>
+                <button type="button" className="btn small ghost" onClick={() => (cut ? show(cut) : void cutoutPhoto(photo))}>
+                  <Icon name="scissors" size={16} /> Retirer le fond
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         <fieldset>
           <legend>

@@ -74,23 +74,41 @@ export function borderColor(pixels: Uint8ClampedArray, size: number): [number, n
   return sum.map((v) => v / n) as [number, number, number]
 }
 
+/** Une photo stockée en PNG ou WebP est une photo détourée (les photos compressées sont en JPEG). */
+export const isCutout = (photo?: Blob) => photo?.type === 'image/png' || photo?.type === 'image/webp'
+
+/** Part de pixels transparents : une photo détourée en a beaucoup. */
+export function transparentShare(pixels: Uint8ClampedArray) {
+  let n = 0
+  for (let i = 3; i < pixels.length; i += 4) if (pixels[i] < 128) n++
+  return n / (pixels.length / 4)
+}
+
 /**
- * Devine les couleurs du vêtement : on retire le fond (couleur du bord de la photo)
- * puis on regarde le centre. Renvoie la couleur principale, et une seconde si elle
- * occupe une part importante. C'est une suggestion : l'utilisateur peut la corriger.
+ * Devine les couleurs du vêtement. Sur une photo détourée, seuls les pixels du vêtement comptent.
+ * Sinon, on retire le fond (couleur du bord de la photo) puis on regarde le centre.
+ * Renvoie la couleur principale, et une seconde si elle occupe une part importante.
+ * C'est une suggestion : l'utilisateur peut la corriger.
  */
 export async function guessColors<T extends { hex: string }>(photo: Blob, palette: T[]): Promise<T[]> {
   const bitmap = await createImageBitmap(photo)
-  const size = 48
+  const size = 64
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = size
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!
   ctx.drawImage(bitmap, 0, 0, size, size)
-  const background = borderColor(ctx.getImageData(0, 0, size, size).data, size)
-  const sw = bitmap.width * 0.6
-  const sh = bitmap.height * 0.6
-  ctx.drawImage(bitmap, (bitmap.width - sw) / 2, (bitmap.height - sh) / 2, sw, sh, 0, 0, size, size)
+  const full = ctx.getImageData(0, 0, size, size).data
+  let ranked
+  if (transparentShare(full) > 0.05) {
+    ranked = rankPaletteColors(full, palette)
+  } else {
+    const background = borderColor(full, size)
+    const sw = bitmap.width * 0.6
+    const sh = bitmap.height * 0.6
+    ctx.clearRect(0, 0, size, size)
+    ctx.drawImage(bitmap, (bitmap.width - sw) / 2, (bitmap.height - sh) / 2, sw, sh, 0, 0, size, size)
+    ranked = rankPaletteColors(ctx.getImageData(0, 0, size, size).data, palette, background)
+  }
   bitmap.close()
-  const ranked = rankPaletteColors(ctx.getImageData(0, 0, size, size).data, palette, background)
   return ranked.filter((x, i) => i === 0 || (i === 1 && x.share >= 0.3)).map((x) => x.color)
 }

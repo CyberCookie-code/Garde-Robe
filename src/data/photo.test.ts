@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PALETTE } from '../domain/catalog'
-import { borderColor, rankPaletteColors } from './photo'
+import { borderColor, isCutout, rankPaletteColors, transparentShare } from './photo'
 
 const fill = (hex: string, n: number) => {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
@@ -43,5 +43,19 @@ describe('borderColor', () => {
     const px = new Uint8ClampedArray(size * size * 4)
     for (let i = 0; i < size * size; i++) px.set([10, 20, 30, 255], i * 4)
     expect(borderColor(px, size)).toEqual([10, 20, 30])
+  })
+})
+
+describe('photo détourée', () => {
+  it('compte la part de pixels transparents', () => {
+    const px = new Uint8ClampedArray([...fill('#000000', 3), 0, 0, 0, 0])
+    expect(transparentShare(px)).toBeCloseTo(0.25)
+  })
+
+  it('reconnaît une photo détourée à son format', () => {
+    expect(isCutout(new Blob([], { type: 'image/webp' }))).toBe(true)
+    expect(isCutout(new Blob([], { type: 'image/png' }))).toBe(true)
+    expect(isCutout(new Blob([], { type: 'image/jpeg' }))).toBe(false)
+    expect(isCutout(undefined)).toBe(false)
   })
 })

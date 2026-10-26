@@ -19,6 +19,7 @@ export const repo = {
   outfits: {
     list: (owner: Owner = ME) => db.outfits.where('ownerId').equals(owner).reverse().sortBy('createdAt'),
     count: (owner: Owner) => db.outfits.where('ownerId').equals(owner).count(),
+    get: (id: Id) => db.outfits.get(id),
     add: (o: Omit<Outfit, 'id' | 'ownerId' | 'createdAt' | 'wearCount'>) =>
       db.outfits.add({ ...o, id: newId(), ownerId: ME, createdAt: new Date().toISOString(), wearCount: 0 }),
     update: (id: Id, patch: Partial<Outfit>) => db.outfits.update(id, patch),

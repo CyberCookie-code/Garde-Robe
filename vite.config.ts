@@ -10,7 +10,17 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
-      workbox: { globPatterns: ['**/*.{js,css,html,woff2}'] },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,woff2}'],
+        // Moteur et modèle de détourage : trop lourds pour être préchargés, gardés au premier usage.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => /\.(wasm|onnx)$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'detourage', expiration: { maxEntries: 4 }, cacheableResponse: { statuses: [200] } },
+          },
+        ],
+      },
       manifest: {
         name: 'Je mets quoi ?',
         short_name: 'Je mets quoi',

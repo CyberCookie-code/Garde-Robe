@@ -5,11 +5,13 @@ import { PageHeader } from '../components/ui'
 import { toast } from '../components/toast'
 import { Icon } from '../components/icons'
 import { WeatherSettings } from './WeatherSettings'
+import { prefs } from '../data/prefs'
 
 export function SettingsPage() {
   const backupAt = useLiveQuery(() => lastBackup.get())
   const [persisted, setPersisted] = useState<boolean>()
   const [busy, setBusy] = useState(false)
+  const [autoCutout, setAutoCutout] = useState(prefs.autoCutout.get)
 
   useEffect(() => {
     void navigator.storage?.persisted?.().then(setPersisted)
@@ -34,6 +36,26 @@ export function SettingsPage() {
         <section className="card" aria-labelledby="s-meteo">
           <h2 id="s-meteo">Météo</h2>
           <WeatherSettings />
+        </section>
+
+        <section className="card" aria-labelledby="s-photos">
+          <h2 id="s-photos">Photos</h2>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={autoCutout}
+              onChange={(e) => {
+                prefs.autoCutout.set(e.target.checked)
+                setAutoCutout(e.target.checked)
+              }}
+            />
+            <span>Retirer le fond automatiquement</span>
+          </label>
+          <p className="muted">
+            Le fond est retiré sur le téléphone, la photo n’est envoyée nulle part. Le premier détourage télécharge l’outil
+            une seule fois (jusqu’à 19 Mo), ensuite il marche hors ligne. Ça marche bien sur un fond simple ; avec une personne
+            ou plusieurs objets sur la photo, le résultat peut être raté : tu peux toujours remettre le fond.
+          </p>
         </section>
 
         <section className="card" aria-labelledby="s-save">

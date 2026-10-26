@@ -176,6 +176,7 @@ main {
 /* ---------- Vignettes ---------- */
 .thumb { aspect-ratio: 3 / 4; background: var(--surface-2); overflow: hidden; border-radius: var(--r-md); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb.cutout img { object-fit: contain; padding: 8%; }
 .thumb.xs { width: 40px; flex: none; border-radius: 12px; }
 .thumb-placeholder { width: 100%; height: 100%; display: grid; place-items: center; }
 .thumb-placeholder span { font-weight: 650; font-size: 1.5rem; color: #fff; text-transform: uppercase; text-shadow: 0 1px 3px rgb(0 0 0 / 0.35); }
@@ -327,6 +328,20 @@ legend { font-weight: 600; font-size: 1rem; padding: 0; margin-bottom: 10px; dis
 }
 .photo-input.has-photo { background: var(--surface-2); }
 .photo-input img { width: 100%; height: 100%; object-fit: contain; }
+.photo-input.cutout img { padding: 6%; }
+.photo-busy {
+  position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 16px;
+  text-align: center; background: color-mix(in srgb, var(--surface) 72%, transparent); color: var(--text); font-weight: 600;
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+}
+.photo-busy small { font-weight: 400; color: var(--muted); max-width: 28ch; }
+.spinner {
+  width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.photo-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -8px; }
+.photo-tools .muted { font-size: 0.85rem; }
 .photo-input:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .photo-cta { display: grid; justify-items: center; gap: 6px; text-align: center; padding: 16px; }
 .photo-cta strong { font-size: 1.15rem; }

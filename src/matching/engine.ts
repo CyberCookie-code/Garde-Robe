@@ -58,7 +58,7 @@ export function targetWarmth(tempC: number) {
 }
 
 /** Actif quand la météo est connue. La pièce la plus chaude de la tenue donne son niveau. */
-const byWeather: Criterion = (o, ctx) => {
+export const byWeather: Criterion = (o, ctx) => {
   if (!ctx.weather) return { score: 0 }
   const items = itemsOf(o, ctx)
   if (items.length === 0) return { score: 0 }
@@ -98,7 +98,7 @@ const OCCASION_LABEL: Record<Occasion, string> = {
  * Si la tenue a des occasions renseignées, on s'y fie ; sinon on compare le niveau
  * d'habillé moyen de ses pièces à celui attendu.
  */
-const byOccasion: Criterion = (o, ctx) => {
+export const byOccasion: Criterion = (o, ctx) => {
   if (!ctx.occasion) return { score: 0 }
   if (o.occasions.length > 0)
     return o.occasions.includes(ctx.occasion)
@@ -115,7 +115,7 @@ const byOccasion: Criterion = (o, ctx) => {
  * Nuance météo et occasion avec les matières renseignées.
  * Une pièce sans matière ne compte pas : le critère reste neutre tant que rien n'est saisi.
  */
-const byMaterial: Criterion = (o, ctx) => {
+export const byMaterial: Criterion = (o, ctx) => {
   if (!ctx.weather && !ctx.occasion) return { score: 0 }
   const items = itemsOf(o, ctx).filter((i) => i.materials?.length)
   if (items.length === 0) return { score: 0 }
@@ -161,7 +161,7 @@ export interface Suggestion {
 }
 
 /** Petit hash stable pour départager les ex æquo différemment chaque jour. */
-function dayHash(s: string) {
+export function dayHash(s: string) {
   let h = 2166136261
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619)
   return (h >>> 0) / 2 ** 32
